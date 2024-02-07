@@ -2,6 +2,8 @@ import sys
 from PySide6 import QtCore, QtGui
 from PySide6.QtWidgets import *
 from load_images_func import LoadImages
+from edit_images_func import EditImages
+import util_func
 
 
 class GuiMain(QWidget):
@@ -10,8 +12,6 @@ class GuiMain(QWidget):
     """
     def __init__(self):
         super().__init__()
-        # print(PySide6.__version__)
-
         self.setWindowTitle("Photo Editor")
         self.setMinimumSize(500, 350)
 
@@ -32,16 +32,17 @@ class GuiMain(QWidget):
         self.tab_widget.addTab(self.tab_export_images, "Tab 3")
 
         # Initialize image load widgets
-        self.button_browse_image_files = QPushButton(text="Browse File(s)")
-        self.button_browse_image_files.clicked.connect(self.populate_image_list_widget)
-        self.button_browse_image_folder = QPushButton(text="Browse Folder")
-        self.button_browse_image_folder.clicked.connect(LoadImages.browse_for_folder)
+        self.button_browse_image_files = QPushButton(text="Add Image File(s)")
+        self.button_browse_image_files.clicked.connect(self.populate_list_with_files)
+        self.button_browse_image_folder = QPushButton(text="Add Image Folder")
+        self.button_browse_image_folder.clicked.connect(self.populate_list_with_dir_files)
         self.image_url_list = QListWidget()
         self.image_url_list.setFixedSize(500, 250)
+        self.image_url_list.setSelectionMode(QListWidget.MultiSelection)
         self.button_clear_url_list = QPushButton(text="Clear File(s)")
         self.button_clear_url_list.clicked.connect(self.clean_url_list)
         self.button_remove_selected_url = QPushButton(text="Remove Selected File(s)")
-        self.button_remove_selected_url.clicked.connect(LoadImages.remove_selected_urls)
+        self.button_remove_selected_url.clicked.connect(self.remove_selected_urls)
 
         # Initialize image edit widgets
         self.label_image_preview = QLabel()
@@ -66,6 +67,7 @@ class GuiMain(QWidget):
         self.combobox_rotation.addItem("270")
         self.combobox_active_image = QComboBox()
         self.combobox_active_image.addItem("Select an Image to Edit")
+        self.combobox_active_image.currentIndexChanged.connect(self.display_selected_image)
         self.button_toggle_preview = QPushButton(text="Toggle Image Changes")
         self.checkbox_apply_all_images = QCheckBox()
         self.checkbox_apply_all_images.setChecked(True)
@@ -231,19 +233,79 @@ class GuiMain(QWidget):
         self.tab_widget.setTabText(2, "Export Images")
         self.tab_export_images.setLayout(layout_export_images)
 
-    def populate_image_list_widget(self):
+    def populate_list_with_files(self):
         """
-        Calls browse_for_files to let user open file dialog and select 1 or more files which is stored
-        in selected_files
+        Calls browse_for_files from LoadImages class to let user open file dialog and select 1 or more files
+        which is stored in the selected_files_abs_paths attr.
         :return:
         """
         self.load_images.browse_for_files()
-        selected_files = self.load_images.selected_files
-        self.image_url_list.addItems(selected_files)
+        selected_files = self.load_images.selected_files_abs_paths
+        self.load_images.check_list_for_duplicates(self.image_url_list, selected_files)
+
+        refined_file_list = self.load_images.refined_file_list
+        if refined_file_list:
+            self.image_url_list.addItems(refined_file_list)
+
+        # Reset vars for next load pass and populate the active img combobox
+        self.load_images.reset_init_vars()
+        self.populate_active_image_combobox(refined_file_list)
+
+    def populate_list_with_dir_files(self):
+        """
+        Calls browse_for_folder from LoadImages class to let user open file dialog and select a directory.  The files
+        are parsed then stored in the dir_selected_files_abs_paths attr.
+        :return:
+        """
+        self.load_images.browse_for_folder()
+        dir_selected_files = self.load_images.dir_selected_files_abs_paths
+        self.load_images.check_list_for_duplicates(self.image_url_list, dir_selected_files)
+
+        refined_file_list = self.load_images.refined_file_list
+        if refined_file_list:
+            self.image_url_list.addItems(refined_file_list)
+
+        # Reset vars for next load pass and populate the active img combobox
+        self.load_images.reset_init_vars()
+        self.populate_active_image_combobox(refined_file_list)
+
+    def populate_active_image_combobox(self, refined_file_list):
+        truncated_file_paths = util_func.truncate_file_path(refined_file_list)
+        self.combobox_active_image.addItems(truncated_file_paths)
 
     def clean_url_list(self):
         """
-        Clear the file list widget
+        Clear the file list widget and also reset the active image combobox in the edit tab while keeping the first
+        default item.
         :return:
         """
         self.image_url_list.clear()
+        while self.combobox_active_image.count() > 1:
+            self.combobox_active_image.removeItem(1)
+
+    def remove_selected_urls(self):
+        """
+        Remove all selected items from the list widget
+        :return:
+        """
+        selected_items = self.image_url_list.selectedItems()
+        for item in selected_items:
+            self.image_url_list.takeItem(self.image_url_list.row(item))
+
+    def display_selected_image(self):
+        """
+        Triggers when the active image combobox detects a change.  Get the index-1 (to ignore the default combobox
+        item), use that index to get the full untruncated absolute path from the list widget and load that image
+        into the label.
+        :return:
+        """
+        if self.combobox_active_image.currentIndex() != 0:
+            item_idx = self.combobox_active_image.currentIndex() - 1
+            item = self.image_url_list.item(item_idx)
+            pixmap = QtGui.QPixmap(item.text())
+            self.label_image_preview.setPixmap(pixmap.scaled(
+                self.label_image_preview.size(),
+                QtGui.Qt.KeepAspectRatio,
+                QtGui.Qt.SmoothTransformation))
+        else:
+            self.label_image_preview.clear()
