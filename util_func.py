@@ -17,20 +17,17 @@ def is_file_image(filepath):
     return True if ext.lower() in image_extensions else False
 
 
-def truncate_file_path(refined_file_list):
+def truncate_file_path(img_path):
     """
     Truncate the file paths in the passed in list so they can be displayed and fitted into the Edit Image combobox
     widget.
-    :param refined_file_list:
-    :return:
+    :param img_path:
+    :return truncated_file_path:
     """
-    truncated_file_list = []
+    if len(img_path) <= TRUNCATE_MAX:
+        truncated_file_path = img_path
+    else:
+        truncated_path = f"{img_path[:TRUNCATE_PREFIX_LENGTH]}...{img_path[-TRUNCATE_SUFFIX_LENGTH:]}"
+        truncated_file_path = truncated_path
 
-    for path in refined_file_list:
-        if len(path) <= TRUNCATE_MAX:
-            truncated_file_list.append(path)
-        else:
-            truncated_path = f"{path[:TRUNCATE_PREFIX_LENGTH]}...{path[-TRUNCATE_SUFFIX_LENGTH:]}"
-            truncated_file_list.append(truncated_path)
-
-    return truncated_file_list
+    return truncated_file_path

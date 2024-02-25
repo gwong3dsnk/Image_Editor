@@ -1,5 +1,7 @@
 import logging
 import sys
+from PIL.ImageQt import ImageQt
+from PIL import Image
 
 
 class EditImages:
@@ -18,3 +20,12 @@ class EditImages:
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(log_format)
         self.logger.addHandler(stream_handler)
+
+    def create_pil_obj(self, img_abs_path):
+        """
+        Create the ImageQt object to return and display in QLabel
+        :param img_abs_path: Absolute path to the image
+        :return pil_img: ImageQt object
+        """
+        pil_img = ImageQt(img_abs_path)
+        return pil_img

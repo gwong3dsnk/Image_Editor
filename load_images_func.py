@@ -1,5 +1,7 @@
 from PySide6.QtWidgets import QFileDialog
 import os
+from PIL import Image
+import image_job
 import util_func
 import logging
 import sys
@@ -16,6 +18,7 @@ class LoadImages:
         self.selected_files_abs_paths = []
         self.dir_selected_files_abs_paths = []
         self.refined_file_list = []
+        self.image_jobs = []
 
         self.logger = logging.getLogger(__name__)
         self.setup_logger()
@@ -93,3 +96,30 @@ class LoadImages:
         self.selected_files_abs_paths = []
         self.dir_selected_files_abs_paths = []
         self.refined_file_list = []
+
+    def create_image_jobs(self, refined_file_list):
+        for file in refined_file_list:
+            img_job_obj = image_job.ImageJob()
+            with Image.open(file) as ip:
+                img_job_obj.img_height = ip.height
+                img_job_obj.img_width = ip.width
+                img_job_obj.img_aspect_ratio = round(ip.height / ip.width, 2)
+                img_job_obj.img_format = ip.format
+                img_job_obj.img_path = file
+                img_job_obj.img_name = file.rpartition("/")[2]
+
+            self.image_jobs.append(img_job_obj)
+
+    # def create_pil_obj(self, img_abs_path):
+    #     """
+    #     Create the ImageQt object to return and display in QLabel
+    #     :param img_abs_path: Absolute path to the image
+    #     :return pil_img: ImageQt object
+    #     """
+    #     # Call set_img_attr to set the EditImages class attributes.
+    #     with Image.open(img_abs_path) as ip:
+    #         self.set_img_attr(ip)
+    #
+    #     pil_img = ImageQt(img_abs_path)
+    #
+    #     return pil_img
