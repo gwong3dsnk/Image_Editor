@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtCore import Qt
-from PySide6 import QtCore, QtGui
+from PySide6 import QtGui
 from PySide6.QtWidgets import *
 from load_images_func import LoadImages
 from edit_images_func import EditImages
@@ -16,23 +16,15 @@ class GuiMain(QWidget):
         self.setWindowTitle("Photo Editor")
         self.setMinimumSize(500, 350)
 
-        self.pixmap = QtGui.QPixmap()
-        self.img_job = []
-        self.active_img_job_index = 0
-
-        # Instantiate func classes to access data logic
-        self.load_images = LoadImages()
-        self.edit_images = EditImages()
-
         # Create the top menu bar
         self.menu_bar = QMenuBar(self)
         self.create_menu_bar()
 
         # Create the window tab objects
-        self.tab_load_images = QWidget()
-        self.tab_edit_images = QWidget()
-        self.tab_export_images = QWidget()
-        self.tab_widget = QTabWidget()
+        self.tab_load_images = QWidget(self)
+        self.tab_edit_images = QWidget(self)
+        self.tab_export_images = QWidget(self)
+        self.tab_widget = QTabWidget(self)
         self.tab_widget.addTab(self.tab_load_images, "Tab 1")
         self.tab_widget.addTab(self.tab_edit_images, "Tab 2")
         self.tab_widget.addTab(self.tab_export_images, "Tab 3")
@@ -54,28 +46,32 @@ class GuiMain(QWidget):
         self.label_image_preview = QLabel()
         self.label_image_preview.setFixedSize(500, 400)
         self.label_image_preview.setScaledContents(False)
+        self.label_image_preview.setAlignment(Qt.AlignCenter)
         self.label_image_preview.setStyleSheet("background-color: black;")
         self.label_resolution = QLabel(text="Original Resolution:")
         self.label_resolution.setToolTip("This is the resolution resize control.  Enter the new X and Y resolutions.")
+        self.label_keep_aspect_ratio = QLabel(text=f"Keep Aspect Ratio (0.00)?")
         self.line_edit_x_res = QLineEdit()
         self.line_edit_x_res.setPlaceholderText("New X Res")
-        self.line_edit_x_res.editingFinished.connect(self.calc_img_height)
+        self.line_edit_x_res.editingFinished.connect(self.refresh_img_height)
         self.line_edit_y_res = QLineEdit()
         self.line_edit_y_res.setPlaceholderText("New Y Res")
-        self.line_edit_y_res.editingFinished.connect(self.calc_img_width)
-        self.line_edit_contrast = QLineEdit()
-        self.line_edit_contrast.setPlaceholderText("i.e. 1.3 for 30%")
-        self.line_edit_rotate = QLineEdit()
-        self.line_edit_rotate.setPlaceholderText("Enter rotation degrees")
+        self.line_edit_y_res.editingFinished.connect(self.refresh_img_width)
+        self.spinbox_contrast = QDoubleSpinBox()
+        self.spinbox_contrast.setValue(1)
+        self.spinbox_contrast.setMinimum(0)
+        self.spinbox_contrast.setMaximum(10)
+        self.spinbox_contrast.setDecimals(2)
+        self.spinbox_contrast.setToolTip("i.e. Enter 1.3 for 30%")
+        self.spinbox_contrast.editingFinished.connect(self.refresh_img_contrast)
+        self.spinbox_rotate = QSpinBox()
+        self.spinbox_rotate.setMinimum(-360)
+        self.spinbox_rotate.setMaximum(360)
+        self.spinbox_rotate.valueChanged.connect(self.refresh_img_rotate)
         self.line_edit_sharpness = QLineEdit()
         self.line_edit_sharpness.setPlaceholderText("0 b/w, 1.0 orig, 1.0+ sharpen")
         self.line_edit_brightness = QLineEdit()
         self.line_edit_brightness.setPlaceholderText("0 b, 1.0 orig, 1.0+ brighten")
-        self.combobox_rotation = QComboBox()
-        self.combobox_rotation.addItem("Degrees")
-        self.combobox_rotation.addItem("90")
-        self.combobox_rotation.addItem("180")
-        self.combobox_rotation.addItem("270")
         self.combobox_active_image = QComboBox()
         self.combobox_active_image.addItem("Select an Image to Edit")
         self.combobox_active_image.currentIndexChanged.connect(self.display_selected_image)
@@ -122,6 +118,10 @@ class GuiMain(QWidget):
         main_layout.addWidget(self.tab_widget, 0, 0)
         self.setLayout(main_layout)
         main_layout.setMenuBar(self.menu_bar)
+
+        # Instantiate func classes to access data logic
+        self.load_images = LoadImages()
+        self.edit_images = EditImages(self.label_image_preview)
 
     def create_menu_bar(self):
         """
@@ -176,14 +176,15 @@ class GuiMain(QWidget):
         add the grid to the tab.
         :return:
         """
-        label_contrast = QLabel(text="Enter Contrast Value:")
+        label_contrast = QLabel(text="Contrast:")
         label_contrast.setToolTip("Inputting 1.3 means 30% more contrast.")
-        label_keep_aspect_ratio = QLabel(text="Keep Aspect Ratio?")
-        label_sharpness = QLabel(text="Enter Sharpness Value:")
+        label_sharpness = QLabel(text="Sharpness:")
         label_sharpness.setToolTip("0 b/w, 1.0 orig, 1.0+ sharpen")
-        label_brightness = QLabel(text="Enter Brightness Value:")
+        label_brightness = QLabel(text="Brightness:")
         label_brightness.setToolTip("0 b, 1.0 orig, 1.0+ brighten")
         label_apply_to_all_images = QLabel(text="Apply Edits to All Images?")
+        label_rotation = QLabel(text="Rotation:")
+        label_rotation.setToolTip("Enter rotation value in degrees (i.e. 90 for 90 degrees)")
 
         layout_edit_images = QGridLayout()
         layout_edit_images.setSizeConstraint(QLayout.SetFixedSize)
@@ -191,17 +192,17 @@ class GuiMain(QWidget):
         layout_edit_images.addWidget(self.label_image_preview, 1, 0, 1, 3)
         layout_edit_images.addWidget(self.label_resolution, 2, 0, 1, 1)
         layout_edit_images.addWidget(label_contrast, 2, 2)
-        layout_edit_images.addWidget(label_keep_aspect_ratio, 4, 0)
+        layout_edit_images.addWidget(self.label_keep_aspect_ratio, 4, 0)
         layout_edit_images.addWidget(self.checkbox_keep_aspect_ratio, 4, 1)
         layout_edit_images.addWidget(label_sharpness, 4, 2)
         layout_edit_images.addWidget(label_brightness, 6, 2)
         layout_edit_images.addWidget(self.line_edit_x_res, 3, 0)
         layout_edit_images.addWidget(self.line_edit_y_res, 3, 1)
-        layout_edit_images.addWidget(self.line_edit_contrast, 3, 2)
+        layout_edit_images.addWidget(self.spinbox_contrast, 3, 2)
         layout_edit_images.addWidget(self.line_edit_sharpness, 5, 2)
         layout_edit_images.addWidget(self.line_edit_brightness, 7, 2)
-        layout_edit_images.addWidget(self.line_edit_rotate, 5, 0)
-        layout_edit_images.addWidget(self.combobox_rotation, 5, 1)
+        layout_edit_images.addWidget(label_rotation, 5, 0)
+        layout_edit_images.addWidget(self.spinbox_rotate, 5, 1)
         layout_edit_images.addWidget(label_apply_to_all_images, 6, 0)
         layout_edit_images.addWidget(self.checkbox_apply_all_images, 6, 1)
         layout_edit_images.addWidget(self.button_apply_to_preview, 7, 0)
@@ -222,7 +223,7 @@ class GuiMain(QWidget):
         """
         label_export_prefix_suffix = QLabel(text="Enter prefix/suffix for filename:")
         label_export_prefix_suffix.setToolTip("Add a prefix or suffix to the file name when saving out the file.")
-        label_use_orig_filename = QLabel("Use Original Filename?")
+        label_use_orig_filename = QLabel(text="Use Original Filename?")
         label_append_number = QLabel(text="Append Incremental Number?")
 
         layout_export_images = QGridLayout()
@@ -300,8 +301,7 @@ class GuiMain(QWidget):
         :return:
         """
         self.load_images.create_image_jobs(refined_file_list)
-        self.img_job = self.load_images.image_jobs
-        for job in self.img_job:
+        for job in self.load_images.all_image_jobs:
             self.image_url_list.addItem(job.img_path)
             self.populate_active_image_combobox(job.img_path)
 
@@ -332,56 +332,69 @@ class GuiMain(QWidget):
         :return:
         """
         if self.combobox_active_image.currentIndex() != 0:
-            self.active_img_job_index = self.combobox_active_image.currentIndex() - 1
-            item = self.image_url_list.item(self.active_img_job_index)
-            pil_img = self.edit_images.create_pil_obj(item.text())
+            self.edit_images.set_active_img_job(self.combobox_active_image, self.load_images)
+            scaled_pixmap = self.edit_images.create_pixmap_object(self.image_url_list)
+            self.label_image_preview.setPixmap(scaled_pixmap)
+            self.set_orig_res_values()
 
-            self.pixmap = QtGui.QPixmap.fromImage(pil_img)
-
-            self.label_image_preview.setPixmap(self.pixmap.scaled(
-                self.label_image_preview.size(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation)
+            # Update aspect ratio label with the active img aspect ratio.
+            self.label_keep_aspect_ratio.setText(
+                f"Keep Aspect Ratio ({self.edit_images.img_job.img_aspect_ratio})?"
             )
-
-            # Get the original resolution and display it in the label
-            self.label_resolution.setText(f"Original Resolution: {self.pixmap.width()} x {self.pixmap.height()}")
-            self.line_edit_x_res.setText(str(self.pixmap.width()))
-            self.line_edit_y_res.setText(str(self.pixmap.height()))
         else:
             self.label_image_preview.clear()
 
-    def calc_img_height(self):
+    def set_orig_res_values(self):
+        """
+        Get the original resolution from img job object and display it in QLabel and QLineEdits
+        :return:
+        """
+        orig_width = self.edit_images.img_job.img_width
+        orig_height = self.edit_images.img_job.img_height
+        self.label_resolution.setText(f"Original Resolution: {orig_width} x {orig_height}")
+        self.line_edit_x_res.setText(str(orig_width))
+        self.line_edit_y_res.setText(str(orig_height))
+
+    def refresh_img_height(self):
         """
         Everytime a user enters data into the x LineEdit and focus leaves the LineEdit, this function is called
         to calculate the height based on aspect ratio checkbox state.
         :return:
         """
-        if self.label_image_preview.pixmap() is not None:
+        if self.label_image_preview.pixmap() is not None and self.checkbox_keep_aspect_ratio.isChecked():
             new_img_width = int(self.line_edit_x_res.text())
+            new_img_height = self.edit_images.calc_img_wh(new_img_width, True)
+            self.line_edit_y_res.setText(str(new_img_height))
 
-            if self.checkbox_keep_aspect_ratio.isChecked():
-                active_img_job_aspect_ratio = self.img_job[self.active_img_job_index].img_aspect_ratio
-                if active_img_job_aspect_ratio > 1:
-                    new_img_height = int(round(new_img_width / active_img_job_aspect_ratio, 0))
-                else:
-                    new_img_height = int(round(new_img_width * active_img_job_aspect_ratio, 0))
-
-                self.line_edit_y_res.setText(str(new_img_height))
-
-    def calc_img_width(self):
+    def refresh_img_width(self):
         """
         Everytime a user enters data into the y LineEdit and focus leaves the LineEdit, this function is called
-        to calculate the height based on aspect ratio checkbox state.
+        to calculate the width based on aspect ratio checkbox state.
         :return:
         """
-        if self.label_image_preview.pixmap() is not None:
+        if self.label_image_preview.pixmap() is not None and self.checkbox_keep_aspect_ratio.isChecked():
             new_img_height = int(self.line_edit_y_res.text())
+            new_img_width = self.edit_images.calc_img_wh(new_img_height, False)
+            self.line_edit_x_res.setText(str(new_img_width))
 
-            if self.checkbox_keep_aspect_ratio.isChecked():
-                active_img_job_aspect_ratio = self.img_job[self.active_img_job_index].img_aspect_ratio
-                if active_img_job_aspect_ratio > 1:
-                    new_img_width = int(round(new_img_height * active_img_job_aspect_ratio, 0))
-                else:
-                    new_img_width = int(round(new_img_height / active_img_job_aspect_ratio, 0))
-                self.line_edit_x_res.setText(str(new_img_width))
+    def refresh_img_rotate(self):
+        """
+        Called if user changes value in the spinbox for rotation
+        Use rotation value to rotate pixmap img within QLabel and rescale to fit.  Update attr in img job.
+        :return:
+        """
+        if self.label_image_preview is not None:
+            rotation_value = self.spinbox_rotate.value()
+            scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value)
+            self.label_image_preview.setPixmap(scaled_pixmap)
+
+    def refresh_img_contrast(self):
+        """
+        Called when the user enters a contrast value.  Refreshes the image in the QLabel.
+        :return:
+        """
+        if self.label_image_preview is not None:
+            contrast_value = self.spinbox_contrast.value()
+            rotation_value = self.spinbox_rotate.value()
+            scaled_pixmap = self.edit_images.calc_img_contrast(contrast_value, rotation_value)
+            self.label_image_preview.setPixmap(scaled_pixmap)
