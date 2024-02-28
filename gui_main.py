@@ -59,24 +59,30 @@ class GuiMain(QWidget):
         self.line_edit_y_res.editingFinished.connect(self.refresh_img_width)
         self.spinbox_contrast = QDoubleSpinBox()
         self.spinbox_contrast.setValue(1)
-        self.spinbox_contrast.setMinimum(0)
+        self.spinbox_contrast.setMinimum(0.01)
         self.spinbox_contrast.setMaximum(10)
         self.spinbox_contrast.setDecimals(2)
         self.spinbox_contrast.setToolTip("i.e. Enter 1.3 for 30%")
-        self.spinbox_contrast.editingFinished.connect(self.refresh_img_contrast)
+        self.spinbox_contrast.editingFinished.connect(self.refresh_pixmap_img)
         self.spinbox_rotate = QSpinBox()
         self.spinbox_rotate.setMinimum(-360)
         self.spinbox_rotate.setMaximum(360)
         self.spinbox_rotate.valueChanged.connect(self.refresh_img_rotate)
-        self.line_edit_sharpness = QLineEdit()
-        self.line_edit_sharpness.setPlaceholderText("0 b/w, 1.0 orig, 1.0+ sharpen")
-        self.line_edit_brightness = QLineEdit()
-        self.line_edit_brightness.setPlaceholderText("0 b, 1.0 orig, 1.0+ brighten")
+        self.spinbox_sharpness = QDoubleSpinBox()
+        self.spinbox_sharpness.setValue(1)
+        self.spinbox_sharpness.setMinimum(0.01)
+        self.spinbox_sharpness.setToolTip("Enter value.  i.e. 0 b/w, 1.0 orig, 1.0+ sharpen")
+        self.spinbox_sharpness.editingFinished.connect(self.refresh_pixmap_img)
+        self.spinbox_brightness = QDoubleSpinBox()
+        self.spinbox_brightness.setValue(1)
+        self.spinbox_brightness.setMinimum(0.01)
+        self.spinbox_brightness.setToolTip("Enter value.  i.e. 0 b, 1.0 orig, 1.0+ brighten")
+        self.spinbox_brightness.editingFinished.connect(self.refresh_pixmap_img)
         self.combobox_active_image = QComboBox()
         self.combobox_active_image.addItem("Select an Image to Edit")
         self.combobox_active_image.currentIndexChanged.connect(self.display_selected_image)
-        self.button_toggle_preview = QPushButton(text="Toggle Image Changes")
-        self.button_apply_to_preview = QPushButton(text="Apply to Preview")
+        self.button_toggle_preview = QPushButton(text="Toggle Image Preview")
+        self.button_toggle_preview.clicked.connect(self.toggle_image_preview)
         self.checkbox_apply_all_images = QCheckBox()
         self.checkbox_apply_all_images.setChecked(False)
         self.checkbox_keep_aspect_ratio = QCheckBox()
@@ -199,14 +205,13 @@ class GuiMain(QWidget):
         layout_edit_images.addWidget(self.line_edit_x_res, 3, 0)
         layout_edit_images.addWidget(self.line_edit_y_res, 3, 1)
         layout_edit_images.addWidget(self.spinbox_contrast, 3, 2)
-        layout_edit_images.addWidget(self.line_edit_sharpness, 5, 2)
-        layout_edit_images.addWidget(self.line_edit_brightness, 7, 2)
+        layout_edit_images.addWidget(self.spinbox_sharpness, 5, 2)
+        layout_edit_images.addWidget(self.spinbox_brightness, 7, 2)
         layout_edit_images.addWidget(label_rotation, 5, 0)
         layout_edit_images.addWidget(self.spinbox_rotate, 5, 1)
         layout_edit_images.addWidget(label_apply_to_all_images, 6, 0)
         layout_edit_images.addWidget(self.checkbox_apply_all_images, 6, 1)
-        layout_edit_images.addWidget(self.button_apply_to_preview, 7, 0)
-        layout_edit_images.addWidget(self.button_toggle_preview, 7, 1)
+        layout_edit_images.addWidget(self.button_toggle_preview, 7, 0)
 
         for n in range(0, 2):
             layout_edit_images.setRowStretch(n, 0)
@@ -333,13 +338,14 @@ class GuiMain(QWidget):
         """
         if self.combobox_active_image.currentIndex() != 0:
             self.edit_images.set_active_img_job(self.combobox_active_image, self.load_images)
-            scaled_pixmap = self.edit_images.create_pixmap_object(self.image_url_list)
-            self.label_image_preview.setPixmap(scaled_pixmap)
+            default_pixmap = self.edit_images.create_pixmap_object(self.image_url_list)
+            self.label_image_preview.setPixmap(default_pixmap)
             self.set_orig_res_values()
 
             # Update aspect ratio label with the active img aspect ratio.
+            aspect_ratio_rounded = format(self.edit_images.img_job.img_aspect_ratio, ".2f")
             self.label_keep_aspect_ratio.setText(
-                f"Keep Aspect Ratio ({self.edit_images.img_job.img_aspect_ratio})?"
+                f"Keep Aspect Ratio ({aspect_ratio_rounded})?"
             )
         else:
             self.label_image_preview.clear()
@@ -368,8 +374,8 @@ class GuiMain(QWidget):
 
     def refresh_img_width(self):
         """
-        Everytime a user enters data into the y LineEdit and focus leaves the LineEdit, this function is called
-        to calculate the width based on aspect ratio checkbox state.
+        Called if user changes value in the y LineEdit AND focus leaves the LineEdit.  Calculates the width
+        based on aspect ratio checkbox state.
         :return:
         """
         if self.label_image_preview.pixmap() is not None and self.checkbox_keep_aspect_ratio.isChecked():
@@ -385,16 +391,34 @@ class GuiMain(QWidget):
         """
         if self.label_image_preview is not None:
             rotation_value = self.spinbox_rotate.value()
-            scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value)
+            scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, True)
             self.label_image_preview.setPixmap(scaled_pixmap)
 
-    def refresh_img_contrast(self):
-        """
-        Called when the user enters a contrast value.  Refreshes the image in the QLabel.
-        :return:
-        """
+    def refresh_pixmap_img(self):
         if self.label_image_preview is not None:
             contrast_value = self.spinbox_contrast.value()
             rotation_value = self.spinbox_rotate.value()
-            scaled_pixmap = self.edit_images.calc_img_contrast(contrast_value, rotation_value)
-            self.label_image_preview.setPixmap(scaled_pixmap)
+            sharpness_value = self.spinbox_sharpness.value()
+            brightness_value = self.spinbox_brightness.value()
+
+            enhanced_pixmap = self.edit_images.calc_img_enhance(rotation_value, contrast_value,
+                                                                sharpness_value, brightness_value)
+            self.label_image_preview.setPixmap(enhanced_pixmap)
+
+    def toggle_image_preview(self):
+        """
+        Called when user clicks on the Toggle Image Preview button.  Swaps between the default pixmap and the
+        enhanced pixmap (if exists), ensuring that both adopt the proper rotation value.
+        :return:
+        """
+        rotation_value = self.spinbox_rotate.value()
+
+        if self.label_image_preview is not None:
+            if self.edit_images.is_enhanced_pixmap:
+                scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, True)
+                self.label_image_preview.setPixmap(scaled_pixmap)
+                self.edit_images.is_enhanced_pixmap = False
+            else:
+                scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, False)
+                self.label_image_preview.setPixmap(scaled_pixmap)
+                self.edit_images.is_enhanced_pixmap = True

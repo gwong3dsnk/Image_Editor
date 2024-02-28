@@ -14,10 +14,13 @@ class EditImages:
     def __init__(self, label_preview_widget):
         self.logger = logging.getLogger(__name__)
         self.setup_logger()
+
         self.active_job_index = 0
-        self.pixmap = QPixmap()
+        self.default_pixmap = QPixmap()
+        self.enhanced_pixmap = QPixmap()
         self.img_job = ImageJob()
         self.label_preview_widget = label_preview_widget
+        self.is_enhanced_pixmap = False
 
     def setup_logger(self):
         log_format = logging.Formatter("%(asctime)s: %(module)s: %(levelname)s: %(message)s",
@@ -45,13 +48,10 @@ class EditImages:
         :return scaled_pixmap:
         """
         item = image_url_list.item(self.active_job_index)
-        self.pixmap = QPixmap(item.text())
+        self.default_pixmap = QPixmap(item.text())
 
-        scaled_pixmap = (self.pixmap.scaled(
-            self.label_preview_widget.size(),
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation)
-        )
+        scaled_pixmap = self.scale_pixmap(self.default_pixmap)
+        self.is_enhanced_pixmap = False
 
         return scaled_pixmap
 
@@ -83,53 +83,67 @@ class EditImages:
             self.img_job.img_width = new_img_width
             return new_img_width
 
-    def calc_img_rotation(self, rotation_value):
+    def calc_img_rotation(self, rotation_value, is_rotating_default_pixmap):
         """
-        Take in args containing user input rotation degrees and widgets and returns a scaled/rotated pixmap
+        Rotates the pixmap, rescales it and returns it.  Pixmap state is
         :param rotation_value: (int) User entered rotation value
+        :param is_rotating_default_pixmap: (bool) True-User selects img from Edit panel combobox.  False-enhanced img
         :return scaled_pixmap: Pixmap that has been rotated
         """
-        rotated_pixmap = self.pixmap.transformed(QTransform().rotate(rotation_value))
-        scaled_pixmap = rotated_pixmap.scaled(
-            self.label_preview_widget.size(),
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
+        if is_rotating_default_pixmap:
+            rotated_pixmap = self.default_pixmap.transformed(QTransform().rotate(rotation_value))
+        else:
+            rotated_pixmap = self.enhanced_pixmap.transformed(QTransform().rotate(rotation_value))
+
+        # Scale the pixmap to fit into the QLabel
+        scaled_pixmap = self.scale_pixmap(rotated_pixmap)
 
         # Store value into image job for export
         self.img_job.img_rotation = rotation_value
         return scaled_pixmap
 
-    def calc_img_contrast(self, contrast_value, rotation_value):
+    def calc_img_enhance(self, *args):
         """
-        Executes the contrast adjustment on the current pixmap image.
-        :param contrast_value: (float)
-        :param rotation_value: (int)
+        Executes image enhancements based on user data entered
+        :param args: [rotation_value, contrast_value, sharpness_value, brightness_value]
         :return:
         """
         image = self.convert_pixmap_to_pil()
-        img_enhancer = ImageEnhance.Contrast(image)
-        contrasted_img = img_enhancer.enhance(contrast_value)
-        self.convert_pil_to_pixmap(contrasted_img)
 
-        # Create the scaled pixmap and return (take into account previously set values)
-        scaled_pixmap = self.calc_img_rotation(rotation_value)
-        return scaled_pixmap
+        enhanced_img_contrast = ImageEnhance.Contrast(image).enhance(args[1])
+        enhanced_img_sharpness = ImageEnhance.Sharpness(enhanced_img_contrast).enhance(args[2])
+        enhanced_img_brightness = ImageEnhance.Brightness(enhanced_img_sharpness).enhance(args[3])
+
+        self.convert_pil_to_pixmap(enhanced_img_brightness)
+
+        # Rotation gets reset.  Need to re-apply rotation to image before doing rescale on pixmap
+        rotated_pixmap = self.calc_img_rotation(args[0], False)
+        self.is_enhanced_pixmap = True
+        return rotated_pixmap
 
     def convert_pixmap_to_pil(self):
         """
         Converts from a pixmap image to a Pillow Image
         :return image: (Image)
         """
-        pil_img = self.pixmap.toImage()
+        pil_img = self.default_pixmap.toImage()
         image = Image.fromqimage(pil_img)
         return image
 
     def convert_pil_to_pixmap(self, pil_img):
         """
-        Converts a given pillow Image to a Pixmap and updates the self.pixmap attr.
+        Converts a given pillow Image to a Pixmap and updates the self.enhanced_pixmap attr.
         :param pil_img: (Image)
         :return:
         """
         image_qt = ImageQt.ImageQt(pil_img)
-        self.pixmap = QPixmap.fromImage(image_qt)
+        self.enhanced_pixmap = QPixmap.fromImage(image_qt)
+
+    def scale_pixmap(self, pixmap):
+        scaled_pixmap = pixmap.scaled(
+            self.label_preview_widget.size(),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
+
+        return scaled_pixmap

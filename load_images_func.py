@@ -103,7 +103,7 @@ class LoadImages:
             with Image.open(file) as ip:
                 img_job_obj.img_height = ip.height
                 img_job_obj.img_width = ip.width
-                img_job_obj.img_aspect_ratio = float(format(ip.height / ip.width, ".2f"))
+                img_job_obj.img_aspect_ratio = ip.height / ip.width
                 img_job_obj.img_format = ip.format
                 img_job_obj.img_path = file
                 img_job_obj.img_name = file.rpartition("/")[2]
