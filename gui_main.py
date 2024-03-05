@@ -51,6 +51,7 @@ class GuiMain(QWidget):
         self.label_resolution = QLabel(text="Original Resolution:")
         self.label_resolution.setToolTip("This is the resolution resize control.  Enter the new X and Y resolutions.")
         self.label_keep_aspect_ratio = QLabel(text=f"Keep Aspect Ratio (0.00)?")
+        self.label_displayed_image = QLabel(text="Displayed: N/A")
         self.line_edit_x_res = QLineEdit()
         self.line_edit_x_res.setPlaceholderText("New X Res")
         self.line_edit_x_res.editingFinished.connect(self.refresh_img_height)
@@ -212,6 +213,7 @@ class GuiMain(QWidget):
         layout_edit_images.addWidget(label_apply_to_all_images, 6, 0)
         layout_edit_images.addWidget(self.checkbox_apply_all_images, 6, 1)
         layout_edit_images.addWidget(self.button_toggle_preview, 7, 0)
+        layout_edit_images.addWidget(self.label_displayed_image, 7, 1)
 
         for n in range(0, 2):
             layout_edit_images.setRowStretch(n, 0)
@@ -352,6 +354,7 @@ class GuiMain(QWidget):
             )
         else:
             self.label_image_preview.clear()
+            self.label_displayed_image.setText("Displayed: N/A")
 
     def set_orig_res_values(self):
         """
@@ -394,7 +397,7 @@ class GuiMain(QWidget):
         """
         if self.label_image_preview is not None:
             rotation_value = self.spinbox_rotate.value()
-            scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, True)
+            scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, False)
             self.label_image_preview.setPixmap(scaled_pixmap)
 
     def refresh_pixmap_img(self):
@@ -421,7 +424,9 @@ class GuiMain(QWidget):
                 scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, True)
                 self.label_image_preview.setPixmap(scaled_pixmap)
                 self.edit_images.is_enhanced_pixmap = False
+                self.label_displayed_image.setText("Displayed: Original")
             else:
                 scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, False)
                 self.label_image_preview.setPixmap(scaled_pixmap)
                 self.edit_images.is_enhanced_pixmap = True
+                self.label_displayed_image.setText("Displayed: Edited")
