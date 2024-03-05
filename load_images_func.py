@@ -74,7 +74,7 @@ class LoadImages:
         Checks for duplicates that already exist in the list widget.  If no dups exist, add to the refined list and
         return it.
         :param list_widget: image_url_list in GuiMain()
-        :param file_list:
+        :param file_list: list of absolute path of file images
         """
         list_widget_item_num = list_widget.count()
         list_item_text = []
@@ -92,7 +92,7 @@ class LoadImages:
         else:
             self.refined_file_list = file_list
 
-    def reset_init_vars(self):
+    def reset_load_attributes(self):
         self.selected_files_abs_paths = []
         self.dir_selected_files_abs_paths = []
         self.refined_file_list = []
@@ -101,8 +101,8 @@ class LoadImages:
         for file in refined_file_list:
             img_job_obj = image_job.ImageJob()
             with Image.open(file) as ip:
-                img_job_obj.img_height = ip.height
-                img_job_obj.img_width = ip.width
+                img_job_obj.img_orig_height = ip.height
+                img_job_obj.img_orig_width = ip.width
                 img_job_obj.img_aspect_ratio = ip.height / ip.width
                 img_job_obj.img_format = ip.format
                 img_job_obj.img_path = file

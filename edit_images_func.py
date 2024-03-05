@@ -16,9 +16,9 @@ class EditImages:
         self.setup_logger()
 
         self.active_job_index = 0
-        self.default_pixmap = QPixmap()
-        self.enhanced_pixmap = QPixmap()
-        self.img_job = ImageJob()
+        self.default_pixmap = None
+        self.enhanced_pixmap = None
+        self.img_job = None
         self.label_preview_widget = label_preview_widget
         self.is_enhanced_pixmap = False
 
@@ -147,3 +147,9 @@ class EditImages:
         )
 
         return scaled_pixmap
+
+    def reset_edit_attributes(self):
+        self.active_job_index = 0
+        self.default_pixmap = None
+        self.enhanced_pixmap = None
+        self.img_job = None

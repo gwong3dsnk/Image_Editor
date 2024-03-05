@@ -267,7 +267,7 @@ class GuiMain(QWidget):
             self.add_img_path_to_widgets(refined_file_list)
 
         # Reset vars for next load pass and populate the active img combobox
-        self.load_images.reset_init_vars()
+        self.load_images.reset_load_attributes()
 
     def populate_list_with_dir_files(self):
         """
@@ -287,7 +287,7 @@ class GuiMain(QWidget):
             self.add_img_path_to_widgets(refined_file_list)
 
         # Reset vars for next load pass and populate the active img combobox
-        self.load_images.reset_init_vars()
+        self.load_images.reset_load_attributes()
 
     def populate_active_image_combobox(self, img_path):
         """
@@ -317,6 +317,9 @@ class GuiMain(QWidget):
         :return:
         """
         self.image_url_list.clear()
+        self.load_images.reset_load_attributes()
+        self.edit_images.reset_edit_attributes()
+        self.load_images.all_image_jobs = []
         while self.combobox_active_image.count() > 1:
             self.combobox_active_image.removeItem(1)
 
@@ -355,8 +358,8 @@ class GuiMain(QWidget):
         Get the original resolution from img job object and display it in QLabel and QLineEdits
         :return:
         """
-        orig_width = self.edit_images.img_job.img_width
-        orig_height = self.edit_images.img_job.img_height
+        orig_width = self.edit_images.img_job.img_orig_width
+        orig_height = self.edit_images.img_job.img_orig_height
         self.label_resolution.setText(f"Original Resolution: {orig_width} x {orig_height}")
         self.line_edit_x_res.setText(str(orig_width))
         self.line_edit_y_res.setText(str(orig_height))
