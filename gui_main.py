@@ -16,6 +16,9 @@ class GuiMain(QWidget):
         self.setWindowTitle("Photo Editor")
         self.setMinimumSize(500, 350)
 
+        self.img_job = None
+        self.is_attr_modified = False
+
         # Create the top menu bar
         self.menu_bar = QMenuBar(self)
         self.create_menu_bar()
@@ -50,7 +53,7 @@ class GuiMain(QWidget):
         self.label_image_preview.setStyleSheet("background-color: black;")
         self.label_resolution = QLabel(text="Original Resolution:")
         self.label_resolution.setToolTip("This is the resolution resize control.  Enter the new X and Y resolutions.")
-        self.label_keep_aspect_ratio = QLabel(text=f"Keep Aspect Ratio (0.00)?")
+        self.label_keep_aspect_ratio = QLabel(text="Keep Aspect Ratio (0.00)?")
         self.label_displayed_image = QLabel(text="Displayed: N/A")
         self.line_edit_x_res = QLineEdit()
         self.line_edit_x_res.setPlaceholderText("New X Res")
@@ -60,23 +63,25 @@ class GuiMain(QWidget):
         self.line_edit_y_res.editingFinished.connect(self.refresh_img_width)
         self.spinbox_contrast = QDoubleSpinBox()
         self.spinbox_contrast.setValue(1)
-        self.spinbox_contrast.setMinimum(0.01)
-        self.spinbox_contrast.setMaximum(10)
+        self.spinbox_contrast.setRange(0.01, 10)
         self.spinbox_contrast.setDecimals(2)
+        self.spinbox_contrast.setSingleStep(0.1)
         self.spinbox_contrast.setToolTip("i.e. Enter 1.3 for 30%")
         self.spinbox_contrast.editingFinished.connect(self.refresh_pixmap_img)
         self.spinbox_rotate = QSpinBox()
-        self.spinbox_rotate.setMinimum(-360)
-        self.spinbox_rotate.setMaximum(360)
+        self.spinbox_rotate.setRange(-360, 360)
+        self.spinbox_rotate.setSingleStep(45)
         self.spinbox_rotate.valueChanged.connect(self.refresh_img_rotate)
         self.spinbox_sharpness = QDoubleSpinBox()
         self.spinbox_sharpness.setValue(1)
         self.spinbox_sharpness.setMinimum(0.01)
+        self.spinbox_sharpness.setSingleStep(0.01)
         self.spinbox_sharpness.setToolTip("Enter value.  i.e. 0 b/w, 1.0 orig, 1.0+ sharpen")
         self.spinbox_sharpness.editingFinished.connect(self.refresh_pixmap_img)
         self.spinbox_brightness = QDoubleSpinBox()
         self.spinbox_brightness.setValue(1)
         self.spinbox_brightness.setMinimum(0.01)
+        self.spinbox_brightness.setSingleStep(0.01)
         self.spinbox_brightness.setToolTip("Enter value.  i.e. 0 b, 1.0 orig, 1.0+ brighten")
         self.spinbox_brightness.editingFinished.connect(self.refresh_pixmap_img)
         self.combobox_active_image = QComboBox()
@@ -342,30 +347,64 @@ class GuiMain(QWidget):
         :return:
         """
         if self.combobox_active_image.currentIndex() != 0:
-            self.edit_images.set_active_img_job(self.combobox_active_image, self.load_images)
-            default_pixmap = self.edit_images.create_pixmap_object(self.image_url_list)
-            self.label_image_preview.setPixmap(default_pixmap)
-            self.set_orig_res_values()
-
-            # Update aspect ratio label with the active img aspect ratio.
-            aspect_ratio_rounded = format(self.edit_images.img_job.img_aspect_ratio, ".2f")
-            self.label_keep_aspect_ratio.setText(
-                f"Keep Aspect Ratio ({aspect_ratio_rounded})?"
-            )
+            display_pixmap = self.get_img_job_pixmap()
+            self.label_image_preview.setPixmap(display_pixmap)
+            self.set_edit_control_values()
+            self.is_attr_modified = False
         else:
+            self.reset_edit_controls()
             self.label_image_preview.clear()
-            self.label_displayed_image.setText("Displayed: N/A")
 
-    def set_orig_res_values(self):
+    def get_img_job_pixmap(self):
+        self.edit_images.set_active_img_job(self.combobox_active_image, self.load_images)
+        self.img_job = self.edit_images.img_job
+
+        if self.img_job.img_pixmap is None:
+            display_pixmap = self.edit_images.create_default_pixmap_object(self.image_url_list)
+            self.img_job.img_pixmap = display_pixmap
+        else:
+            display_pixmap = self.img_job.img_pixmap
+
+        return display_pixmap
+
+    def reset_edit_controls(self):
+        self.is_attr_modified = True
+        self.spinbox_rotate.setValue(0)
+        self.spinbox_contrast.setValue(1)
+        self.spinbox_sharpness.setValue(1)
+        self.spinbox_brightness.setValue(1)
+        self.line_edit_x_res.setText("")
+        self.line_edit_y_res.setText("")
+        self.label_displayed_image.setText("Displayed: N/A")
+        self.label_resolution.setText("Original Resolution:")
+        self.label_keep_aspect_ratio.setText("Keep Aspect Ratio (0.00)?")
+
+    def set_resolution_values(self):
         """
         Get the original resolution from img job object and display it in QLabel and QLineEdits
         :return:
         """
-        orig_width = self.edit_images.img_job.img_orig_width
-        orig_height = self.edit_images.img_job.img_orig_height
+        orig_width = self.img_job.img_orig_width
+        orig_height = self.img_job.img_orig_height
+
         self.label_resolution.setText(f"Original Resolution: {orig_width} x {orig_height}")
-        self.line_edit_x_res.setText(str(orig_width))
-        self.line_edit_y_res.setText(str(orig_height))
+
+        self.line_edit_y_res.setText(orig_height) if self.img_job.img_new_height == "" else (
+            self.line_edit_y_res.setText(self.img_job.img_new_height))
+
+        self.line_edit_x_res.setText(orig_width) if self.img_job.img_new_width == "" else (
+            self.line_edit_x_res.setText(self.img_job.img_new_width))
+
+    def set_edit_control_values(self):
+        self.set_resolution_values()
+
+        # Update aspect ratio label with the active img aspect ratio.
+        aspect_ratio_rounded = format(self.img_job.img_aspect_ratio, ".2f")
+        self.label_keep_aspect_ratio.setText(f"Keep Aspect Ratio ({aspect_ratio_rounded})?")
+
+        # TODO: Set the rotation, contrast, sharpness and brightness from img_job
+        if self.img_job.img_rotation != 0 and self.spinbox_rotate.value() == 0:
+            self.spinbox_rotate.setValue(self.img_job.img_rotation)
 
     def refresh_img_height(self):
         """
@@ -397,7 +436,7 @@ class GuiMain(QWidget):
         """
         if self.label_image_preview is not None:
             rotation_value = self.spinbox_rotate.value()
-            scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, False)
+            scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, self.is_attr_modified)
             self.label_image_preview.setPixmap(scaled_pixmap)
 
     def refresh_pixmap_img(self):
@@ -409,6 +448,7 @@ class GuiMain(QWidget):
 
             enhanced_pixmap = self.edit_images.calc_img_enhance(rotation_value, contrast_value,
                                                                 sharpness_value, brightness_value)
+            self.edit_images.set_img_job_attr(rotation_value, contrast_value, sharpness_value, brightness_value)
             self.label_image_preview.setPixmap(enhanced_pixmap)
 
     def toggle_image_preview(self):
@@ -421,12 +461,12 @@ class GuiMain(QWidget):
 
         if self.label_image_preview is not None:
             if self.edit_images.is_enhanced_pixmap:
-                scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, True)
+                scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, self.is_attr_modified)
                 self.label_image_preview.setPixmap(scaled_pixmap)
                 self.edit_images.is_enhanced_pixmap = False
                 self.label_displayed_image.setText("Displayed: Original")
             else:
-                scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, False)
+                scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, self.is_attr_modified)
                 self.label_image_preview.setPixmap(scaled_pixmap)
                 self.edit_images.is_enhanced_pixmap = True
                 self.label_displayed_image.setText("Displayed: Edited")

@@ -1,6 +1,5 @@
 import logging
 import sys
-from image_job import ImageJob
 from PySide6.QtGui import QTransform, QPixmap
 from PySide6.QtCore import Qt
 from PIL import Image, ImageEnhance, ImageQt
@@ -41,19 +40,21 @@ class EditImages:
         self.active_job_index = combobox_active_image.currentIndex() - 1
         self.img_job = load_images_obj.all_image_jobs[self.active_job_index]
 
-    def create_pixmap_object(self, image_url_list):
+    def create_default_pixmap_object(self, image_url_list):
         """
-        Get the image path from the list widget in the load tab, create the pixmap, load pixmap into QLabel
+        Get the image path from the list widget in the load tab, create the pixmap, save it in the img_job
+        default_pixmap attr, scale it to fit to QLabel.
         :param image_url_list: QListWidget containing full abs image file paths
         :return scaled_pixmap:
         """
         item = image_url_list.item(self.active_job_index)
         self.default_pixmap = QPixmap(item.text())
+        self.img_job.img_default_pixmap = self.default_pixmap
 
-        scaled_pixmap = self.scale_pixmap(self.default_pixmap)
+        scaled_default_pixmap = self.scale_pixmap(self.default_pixmap)
         self.is_enhanced_pixmap = False
 
-        return scaled_pixmap
+        return scaled_default_pixmap
 
     def calc_img_wh(self, new_img_wh, is_refreshing_height):
         """
@@ -83,23 +84,21 @@ class EditImages:
             self.img_job.img_width = new_img_width
             return new_img_width
 
-    def calc_img_rotation(self, rotation_value, is_rotating_default_pixmap):
+    def calc_img_rotation(self, rotation_value, is_attr_modified):
         """
         Rotates the pixmap, rescales it and returns it.  Pixmap state is
         :param rotation_value: (int) User entered rotation value
-        :param is_rotating_default_pixmap: (bool) True-User selects img from Edit panel combobox.  False-enhanced img
+        :param is_attr_modified: (bool) Flag if pixmap attr has been modified or not
         :return scaled_pixmap: Pixmap that has been rotated
         """
-        if is_rotating_default_pixmap:
-            rotated_pixmap = self.default_pixmap.transformed(QTransform().rotate(rotation_value))
-        else:
-            rotated_pixmap = self.enhanced_pixmap.transformed(QTransform().rotate(rotation_value))
+        rotated_pixmap = self.img_job.img_pixmap.transformed(QTransform().rotate(rotation_value))
 
         # Scale the pixmap to fit into the QLabel
         scaled_pixmap = self.scale_pixmap(rotated_pixmap)
 
-        # Store value into image job for export
-        self.img_job.img_rotation = rotation_value
+        if not is_attr_modified:
+            self.img_job.img_rotation = rotation_value
+
         return scaled_pixmap
 
     def calc_img_enhance(self, *args):
@@ -119,6 +118,7 @@ class EditImages:
         # Rotation gets reset.  Need to re-apply rotation to image before doing rescale on pixmap
         rotated_pixmap = self.calc_img_rotation(args[0], False)
         self.is_enhanced_pixmap = True
+
         return rotated_pixmap
 
     def convert_pixmap_to_pil(self):
@@ -153,3 +153,9 @@ class EditImages:
         self.default_pixmap = None
         self.enhanced_pixmap = None
         self.img_job = None
+
+    def set_img_job_attr(self, *args):
+        self.img_job.img_rotation = args[0]
+        self.img_job.img_contrast = args[1]
+        self.img_job.img_sharpness = args[2]
+        self.img_job.img_brightness = args[3]
