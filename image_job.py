@@ -6,6 +6,7 @@ class ImageJob:
         self.img_orig_height = ""
         self.img_orig_width = ""
         self.img_aspect_ratio = 0
+        self.img_aspect_ratio_inv = 0
         self.img_format = ""
         self.img_pixmap = None
 
@@ -16,3 +17,4 @@ class ImageJob:
         self.img_contrast = 1
         self.img_sharpness = 1
         self.img_brightness = 1
+        self.img_enhanced_pixmap = None

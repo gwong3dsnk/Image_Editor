@@ -101,9 +101,10 @@ class LoadImages:
         for file in refined_file_list:
             img_job_obj = image_job.ImageJob()
             with Image.open(file) as ip:
-                img_job_obj.img_orig_height = str(ip.height)
-                img_job_obj.img_orig_width = str(ip.width)
+                img_job_obj.img_orig_height = img_job_obj.img_new_height = str(ip.height)
+                img_job_obj.img_orig_width = img_job_obj.img_new_width = str(ip.width)
                 img_job_obj.img_aspect_ratio = ip.height / ip.width
+                img_job_obj.img_aspect_ratio_inv = ip.width / ip.height
                 img_job_obj.img_format = ip.format
                 img_job_obj.img_path = file
                 img_job_obj.img_name = file.rpartition("/")[2]

@@ -18,6 +18,7 @@ class GuiMain(QWidget):
 
         self.img_job = None
         self.is_attr_modified = False
+        self.img_attributes = []
 
         # Create the top menu bar
         self.menu_bar = QMenuBar(self)
@@ -69,9 +70,10 @@ class GuiMain(QWidget):
         self.spinbox_contrast.setToolTip("i.e. Enter 1.3 for 30%")
         self.spinbox_contrast.editingFinished.connect(self.refresh_pixmap_img)
         self.spinbox_rotate = QSpinBox()
+        self.spinbox_rotate.setValue(0)
         self.spinbox_rotate.setRange(-360, 360)
-        self.spinbox_rotate.setSingleStep(45)
-        self.spinbox_rotate.valueChanged.connect(self.refresh_img_rotate)
+        self.spinbox_rotate.setSingleStep(5)
+        self.spinbox_rotate.editingFinished.connect(self.refresh_img_rotate)
         self.spinbox_sharpness = QDoubleSpinBox()
         self.spinbox_sharpness.setValue(1)
         self.spinbox_sharpness.setMinimum(0.01)
@@ -348,8 +350,9 @@ class GuiMain(QWidget):
         """
         if self.combobox_active_image.currentIndex() != 0:
             display_pixmap = self.get_img_job_pixmap()
-            self.label_image_preview.setPixmap(display_pixmap)
+            self.set_resolution_values()
             self.set_edit_control_values()
+            self.label_image_preview.setPixmap(display_pixmap)
             self.is_attr_modified = False
         else:
             self.reset_edit_controls()
@@ -359,11 +362,14 @@ class GuiMain(QWidget):
         self.edit_images.set_active_img_job(self.combobox_active_image, self.load_images)
         self.img_job = self.edit_images.img_job
 
-        if self.img_job.img_pixmap is None:
-            display_pixmap = self.edit_images.create_default_pixmap_object(self.image_url_list)
-            self.img_job.img_pixmap = display_pixmap
+        if self.img_job.img_enhanced_pixmap is None:
+            if self.img_job.img_pixmap is None:
+                display_pixmap = self.edit_images.create_default_pixmap_object(self.image_url_list)
+                self.img_job.img_pixmap = display_pixmap
+            else:
+                display_pixmap = self.img_job.img_pixmap
         else:
-            display_pixmap = self.img_job.img_pixmap
+            display_pixmap = self.img_job.img_enhanced_pixmap
 
         return display_pixmap
 
@@ -396,15 +402,21 @@ class GuiMain(QWidget):
             self.line_edit_x_res.setText(self.img_job.img_new_width))
 
     def set_edit_control_values(self):
-        self.set_resolution_values()
-
+        """
+        Executed after user selects an img from the combobox.  If the image has custom attributes, set them into the
+        UI widgets.
+        :return:
+        """
         # Update aspect ratio label with the active img aspect ratio.
         aspect_ratio_rounded = format(self.img_job.img_aspect_ratio, ".2f")
         self.label_keep_aspect_ratio.setText(f"Keep Aspect Ratio ({aspect_ratio_rounded})?")
 
-        # TODO: Set the rotation, contrast, sharpness and brightness from img_job
         if self.img_job.img_rotation != 0 and self.spinbox_rotate.value() == 0:
             self.spinbox_rotate.setValue(self.img_job.img_rotation)
+
+        self.spinbox_contrast.setValue(self.img_job.img_contrast)
+        self.spinbox_brightness.setValue(self.img_job.img_brightness)
+        self.spinbox_sharpness.setValue(self.img_job.img_sharpness)
 
     def refresh_img_height(self):
         """
@@ -450,6 +462,10 @@ class GuiMain(QWidget):
                                                                 sharpness_value, brightness_value)
             self.edit_images.set_img_job_attr(rotation_value, contrast_value, sharpness_value, brightness_value)
             self.label_image_preview.setPixmap(enhanced_pixmap)
+
+    # def refresh_pixmap_img_contrast(self):
+    #     self.edit_images.calc_img_contrast(self.spinbox_contrast.value())
+    #     self.label_image_preview.setPixmap(self.edit_images.enhanced_pixmap)
 
     def toggle_image_preview(self):
         """

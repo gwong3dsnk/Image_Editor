@@ -1,4 +1,5 @@
 import logging
+import math
 import sys
 from PySide6.QtGui import QTransform, QPixmap
 from PySide6.QtCore import Qt
@@ -15,8 +16,6 @@ class EditImages:
         self.setup_logger()
 
         self.active_job_index = 0
-        self.default_pixmap = None
-        self.enhanced_pixmap = None
         self.img_job = None
         self.label_preview_widget = label_preview_widget
         self.is_enhanced_pixmap = False
@@ -48,40 +47,32 @@ class EditImages:
         :return scaled_pixmap:
         """
         item = image_url_list.item(self.active_job_index)
-        self.default_pixmap = QPixmap(item.text())
-        self.img_job.img_default_pixmap = self.default_pixmap
+        self.img_job.img_pixmap = QPixmap(item.text())
 
-        scaled_default_pixmap = self.scale_pixmap(self.default_pixmap)
+        scaled_default_pixmap = self.scale_pixmap(self.img_job.img_pixmap)
         self.is_enhanced_pixmap = False
 
         return scaled_default_pixmap
 
-    def calc_img_wh(self, new_img_wh, is_refreshing_height):
+    def calc_img_wh(self, new_img_res_val, is_calculating_height):
         """
-        Depending on if focus has left height or width QLineEdit, calculate the other value using img aspect ratio.
-        :param new_img_wh: (int)
-        :param is_refreshing_height: (bool)
+        Executed when focus leaves height or width QLineEdit.  Receives either width or height value then calculates
+        the other value using img aspect ratio.
+        :param new_img_res_val: (int) Can be either a width or height value.
+        :param is_calculating_height: (bool) True if new width has been passed in.  False if new height is passed in.
         :return:
         """
-        active_img_job_aspect_ratio = self.img_job.img_aspect_ratio
-
-        if is_refreshing_height:
-            if active_img_job_aspect_ratio > 1:
-                new_img_height = int(round(new_img_wh / active_img_job_aspect_ratio, 0))
-            else:
-                new_img_height = int(round(new_img_wh * active_img_job_aspect_ratio, 0))
+        if is_calculating_height:
+            new_img_height = int(round(new_img_res_val * self.img_job.img_aspect_ratio, 0))
 
             # Store value into image job for export
-            self.img_job.img_height = new_img_height
+            self.img_job.img_new_height = str(new_img_height)
             return new_img_height
         else:
-            if active_img_job_aspect_ratio > 1:
-                new_img_width = int(round(new_img_wh * active_img_job_aspect_ratio, 0))
-            else:
-                new_img_width = int(round(new_img_wh / active_img_job_aspect_ratio, 0))
+            new_img_width = math.ceil(new_img_res_val * self.img_job.img_aspect_ratio_inv)
 
             # Store value into image job for export
-            self.img_job.img_width = new_img_width
+            self.img_job.img_new_width = str(new_img_width)
             return new_img_width
 
     def calc_img_rotation(self, rotation_value, is_attr_modified):
@@ -91,10 +82,13 @@ class EditImages:
         :param is_attr_modified: (bool) Flag if pixmap attr has been modified or not
         :return scaled_pixmap: Pixmap that has been rotated
         """
-        rotated_pixmap = self.img_job.img_pixmap.transformed(QTransform().rotate(rotation_value))
+        if self.img_job.img_enhanced_pixmap is None:
+            self.img_job.img_enhanced_pixmap = self.img_job.img_pixmap
+        rotated_pixmap = self.img_job.img_enhanced_pixmap.transformed(QTransform().rotate(rotation_value))
 
         # Scale the pixmap to fit into the QLabel
         scaled_pixmap = self.scale_pixmap(rotated_pixmap)
+        self.img_job.img_enhanced_pixmap = scaled_pixmap
 
         if not is_attr_modified:
             self.img_job.img_rotation = rotation_value
@@ -117,27 +111,36 @@ class EditImages:
 
         # Rotation gets reset.  Need to re-apply rotation to image before doing rescale on pixmap
         rotated_pixmap = self.calc_img_rotation(args[0], False)
+
         self.is_enhanced_pixmap = True
 
         return rotated_pixmap
+
+    # def calc_img_contrast(self, contrast_value):
+    #     image = self.convert_pixmap_to_pil()
+    #     enhanced_img_contrast = ImageEnhance.Contrast(image).enhance(contrast_value)
+    #     self.convert_pil_to_pixmap(enhanced_img_contrast)
+    #     # Scale the pixmap to fit into the QLabel
+    #     self.scale_pixmap(self.enhanced_pixmap)
+    #     self.is_enhanced_pixmap = True
 
     def convert_pixmap_to_pil(self):
         """
         Converts from a pixmap image to a Pillow Image
         :return image: (Image)
         """
-        pil_img = self.default_pixmap.toImage()
+        pil_img = self.img_job.img_pixmap.toImage()
         image = Image.fromqimage(pil_img)
         return image
 
     def convert_pil_to_pixmap(self, pil_img):
         """
-        Converts a given pillow Image to a Pixmap and updates the self.enhanced_pixmap attr.
+        Converts a given pillow Image to a Pixmap and updates the self.img_job.img_enhanced_pixmap attr.
         :param pil_img: (Image)
         :return:
         """
         image_qt = ImageQt.ImageQt(pil_img)
-        self.enhanced_pixmap = QPixmap.fromImage(image_qt)
+        self.img_job.img_enhanced_pixmap = QPixmap.fromImage(image_qt)
 
     def scale_pixmap(self, pixmap):
         scaled_pixmap = pixmap.scaled(
@@ -150,8 +153,6 @@ class EditImages:
 
     def reset_edit_attributes(self):
         self.active_job_index = 0
-        self.default_pixmap = None
-        self.enhanced_pixmap = None
         self.img_job = None
 
     def set_img_job_attr(self, *args):
