@@ -18,7 +18,6 @@ class EditImages:
         self.active_job_index = 0
         self.img_job = None
         self.label_preview_widget = label_preview_widget
-        self.is_enhanced_pixmap = False
 
     def setup_logger(self):
         log_format = logging.Formatter("%(asctime)s: %(module)s: %(levelname)s: %(message)s",
@@ -50,7 +49,6 @@ class EditImages:
         self.img_job.img_pixmap = QPixmap(item.text())
 
         scaled_default_pixmap = self.scale_pixmap(self.img_job.img_pixmap)
-        self.is_enhanced_pixmap = False
 
         return scaled_default_pixmap
 
@@ -82,11 +80,7 @@ class EditImages:
         :param is_attr_modified: (bool) Flag if pixmap attr has been modified or not
         :return scaled_pixmap: Pixmap that has been rotated
         """
-        if self.img_job.img_enhanced_pixmap is None:
-            self.img_job.img_enhanced_pixmap = self.img_job.img_pixmap
         rotated_pixmap = self.img_job.img_enhanced_pixmap.transformed(QTransform().rotate(rotation_value))
-
-        # Scale the pixmap to fit into the QLabel
         scaled_pixmap = self.scale_pixmap(rotated_pixmap)
         self.img_job.img_enhanced_pixmap = scaled_pixmap
 
@@ -98,31 +92,20 @@ class EditImages:
     def calc_img_enhance(self, *args):
         """
         Executes image enhancements based on user data entered
-        :param args: [rotation_value, contrast_value, sharpness_value, brightness_value]
+        :param args: [rotation_value, contrast_value, sharpness_value, brightness_value, pil_img]
         :return:
         """
-        image = self.convert_pixmap_to_pil()
+        # image = self.convert_pixmap_to_pil()
 
-        enhanced_img_contrast = ImageEnhance.Contrast(image).enhance(args[1])
+        enhanced_img_contrast = ImageEnhance.Contrast(args[4]).enhance(args[1])
         enhanced_img_sharpness = ImageEnhance.Sharpness(enhanced_img_contrast).enhance(args[2])
         enhanced_img_brightness = ImageEnhance.Brightness(enhanced_img_sharpness).enhance(args[3])
 
         self.convert_pil_to_pixmap(enhanced_img_brightness)
 
-        # Rotation gets reset.  Need to re-apply rotation to image before doing rescale on pixmap
         rotated_pixmap = self.calc_img_rotation(args[0], False)
 
-        self.is_enhanced_pixmap = True
-
         return rotated_pixmap
-
-    # def calc_img_contrast(self, contrast_value):
-    #     image = self.convert_pixmap_to_pil()
-    #     enhanced_img_contrast = ImageEnhance.Contrast(image).enhance(contrast_value)
-    #     self.convert_pil_to_pixmap(enhanced_img_contrast)
-    #     # Scale the pixmap to fit into the QLabel
-    #     self.scale_pixmap(self.enhanced_pixmap)
-    #     self.is_enhanced_pixmap = True
 
     def convert_pixmap_to_pil(self):
         """

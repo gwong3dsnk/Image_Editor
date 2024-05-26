@@ -4,6 +4,8 @@ from PySide6 import QtGui
 from PySide6.QtWidgets import *
 from load_images_func import LoadImages
 from edit_images_func import EditImages
+from export_images_func import ExportImages
+from export_dialog_box import ExportDialogBox
 import util_func
 
 
@@ -19,6 +21,7 @@ class GuiMain(QWidget):
         self.img_job = None
         self.is_attr_modified = False
         self.img_attributes = []
+        self.is_previewing_default = False
 
         # Create the top menu bar
         self.menu_bar = QMenuBar(self)
@@ -73,7 +76,7 @@ class GuiMain(QWidget):
         self.spinbox_rotate.setValue(0)
         self.spinbox_rotate.setRange(-360, 360)
         self.spinbox_rotate.setSingleStep(5)
-        self.spinbox_rotate.editingFinished.connect(self.refresh_img_rotate)
+        self.spinbox_rotate.editingFinished.connect(self.refresh_pixmap_img)
         self.spinbox_sharpness = QDoubleSpinBox()
         self.spinbox_sharpness.setValue(1)
         self.spinbox_sharpness.setMinimum(0.01)
@@ -90,6 +93,7 @@ class GuiMain(QWidget):
         self.combobox_active_image.addItem("Select an Image to Edit")
         self.combobox_active_image.currentIndexChanged.connect(self.display_selected_image)
         self.button_toggle_preview = QPushButton(text="Toggle Image Preview")
+        self.button_toggle_preview.setEnabled(False)
         self.button_toggle_preview.clicked.connect(self.toggle_image_preview)
         self.checkbox_apply_all_images = QCheckBox()
         self.checkbox_apply_all_images.setChecked(False)
@@ -102,13 +106,17 @@ class GuiMain(QWidget):
         self.line_edit_export_dir.setReadOnly(True)
         self.line_edit_export_dir.setStyleSheet("background-color: lightgray;")
         self.button_browse_export_dir = QPushButton(text="Browse to Export Dir")
+        self.button_browse_export_dir.clicked.connect(self.browse_to_export_directory)
         self.button_export_files = QPushButton(text="Export File(s)")
+        self.button_export_files.clicked.connect(self.export_image_to_file)
         self.combobox_image_format = QComboBox()
-        self.combobox_image_format.addItem("Choose Image Format")
+        self.combobox_image_format.addItem("PNG")
+        self.combobox_image_format.addItem("JPEG")
         self.combobox_image_format.addItem("BMP")
         self.combobox_image_format.addItem("GIF")
-        self.combobox_image_format.addItem("JPEG")
-        self.combobox_image_format.addItem("PNG")
+        self.combobox_export_all_or_one = QComboBox()
+        self.combobox_export_all_or_one.addItem("Export Current Active Image")
+        self.combobox_export_all_or_one.addItem("Export All Images")
         self.line_edit_prefix = QLineEdit()
         self.line_edit_prefix.setPlaceholderText("Enter Prefix")
         self.line_edit_suffix = QLineEdit()
@@ -119,6 +127,7 @@ class GuiMain(QWidget):
         self.line_edit_filename.setStyleSheet("background-color: lightgray;")
         self.checkbox_use_orig_filename = QCheckBox()
         self.checkbox_use_orig_filename.setChecked(True)
+        self.checkbox_use_orig_filename.clicked.connect(self.toggle_user_filename)
         self.checkbox_append_number = QCheckBox()
         self.checkbox_append_number.setChecked(False)
 
@@ -136,6 +145,7 @@ class GuiMain(QWidget):
         # Instantiate func classes to access data logic
         self.load_images = LoadImages()
         self.edit_images = EditImages(self.label_image_preview)
+        self.export_images = ExportImages()
 
     def create_menu_bar(self):
         """
@@ -144,18 +154,24 @@ class GuiMain(QWidget):
         """
         # Create the menu
         file_menu = QMenu("File", self)
+        edit_menu = QMenu("Edit", self)
 
         # Create the menu actions
         exit_action = QtGui.QAction("Exit", self)
+        reset_current_image = QtGui.QAction("Reset Current Image", self)
+        reset_all_images = QtGui.QAction("Reset All Images", self)
 
         # Create the function call when the action is triggered.
         exit_action.triggered.connect(self.exit_action_triggered)
 
         # Add the action to the menu
         file_menu.addAction(exit_action)
+        edit_menu.addAction(reset_current_image)
+        edit_menu.addAction(reset_all_images)
 
         # Add the menu to the parent QMenuBar
         self.menu_bar.addMenu(file_menu)
+        self.menu_bar.addMenu(edit_menu)
 
     def exit_action_triggered(self):
         """
@@ -239,19 +255,25 @@ class GuiMain(QWidget):
         label_export_prefix_suffix.setToolTip("Add a prefix or suffix to the file name when saving out the file.")
         label_use_orig_filename = QLabel(text="Use Original Filename?")
         label_append_number = QLabel(text="Append Incremental Number?")
+        label_export_file_format = QLabel("File Format:")
+        label_export_method = QLabel("Export Method:")
 
         layout_export_images = QGridLayout()
         layout_export_images.setSizeConstraint(QLayout.SetFixedSize)
-        layout_export_images.addWidget(self.line_edit_export_dir, 0, 0, 1, 3)
-        layout_export_images.addWidget(self.button_browse_export_dir, 0, 4)
-        layout_export_images.addWidget(label_use_orig_filename, 1, 0)
-        layout_export_images.addWidget(self.checkbox_use_orig_filename, 1, 1)
-        layout_export_images.addWidget(self.line_edit_filename, 1, 2)
-        layout_export_images.addWidget(self.line_edit_prefix, 2, 0)
-        layout_export_images.addWidget(self.line_edit_suffix, 2, 1, 1, 2)
-        layout_export_images.addWidget(label_append_number, 3, 0)
-        layout_export_images.addWidget(self.checkbox_append_number, 3, 1)
-        layout_export_images.addWidget(self.button_export_files, 4, 0)
+        layout_export_images.addWidget(self.line_edit_export_dir, 0, 0, 1, 2)
+        layout_export_images.addWidget(self.button_browse_export_dir, 0, 2)
+        layout_export_images.addWidget(label_export_file_format, 1, 0)
+        layout_export_images.addWidget(self.combobox_image_format, 1, 1)
+        layout_export_images.addWidget(label_export_method, 2, 0)
+        layout_export_images.addWidget(self.combobox_export_all_or_one, 2, 1)
+        layout_export_images.addWidget(label_use_orig_filename, 3, 0)
+        layout_export_images.addWidget(self.checkbox_use_orig_filename, 3, 1)
+        layout_export_images.addWidget(self.line_edit_filename, 3, 2)
+        layout_export_images.addWidget(self.line_edit_prefix, 4, 0)
+        layout_export_images.addWidget(self.line_edit_suffix, 4, 1, 1, 1)
+        layout_export_images.addWidget(label_append_number, 5, 0)
+        layout_export_images.addWidget(self.checkbox_append_number, 5, 1)
+        layout_export_images.addWidget(self.button_export_files, 6, 0)
 
         for n in range(0, 1):
             layout_export_images.setRowStretch(n, 0)
@@ -363,12 +385,16 @@ class GuiMain(QWidget):
         self.img_job = self.edit_images.img_job
 
         if self.img_job.img_enhanced_pixmap is None:
+            self.is_previewing_default = True
+            self.button_toggle_preview.setEnabled(False)
             if self.img_job.img_pixmap is None:
                 display_pixmap = self.edit_images.create_default_pixmap_object(self.image_url_list)
                 self.img_job.img_pixmap = display_pixmap
             else:
                 display_pixmap = self.img_job.img_pixmap
         else:
+            self.is_previewing_default = False
+            self.button_toggle_preview.setEnabled(True)
             display_pixmap = self.img_job.img_enhanced_pixmap
 
         return display_pixmap
@@ -384,6 +410,7 @@ class GuiMain(QWidget):
         self.label_displayed_image.setText("Displayed: N/A")
         self.label_resolution.setText("Original Resolution:")
         self.label_keep_aspect_ratio.setText("Keep Aspect Ratio (0.00)?")
+        self.button_toggle_preview.setEnabled(False)
 
     def set_resolution_values(self):
         """
@@ -400,6 +427,8 @@ class GuiMain(QWidget):
 
         self.line_edit_x_res.setText(orig_width) if self.img_job.img_new_width == "" else (
             self.line_edit_x_res.setText(self.img_job.img_new_width))
+
+        self.spinbox_rotate.setValue(self.img_job.img_rotation)
 
     def set_edit_control_values(self):
         """
@@ -440,32 +469,20 @@ class GuiMain(QWidget):
             new_img_width = self.edit_images.calc_img_wh(new_img_height, False)
             self.line_edit_x_res.setText(str(new_img_width))
 
-    def refresh_img_rotate(self):
-        """
-        Called if user changes value in the spinbox for rotation
-        Use rotation value to rotate pixmap img within QLabel and rescale to fit.  Update attr in img job.
-        :return:
-        """
-        if self.label_image_preview is not None:
-            rotation_value = self.spinbox_rotate.value()
-            scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, self.is_attr_modified)
-            self.label_image_preview.setPixmap(scaled_pixmap)
-
     def refresh_pixmap_img(self):
+        self.button_toggle_preview.setEnabled(True)
         if self.label_image_preview is not None:
             contrast_value = self.spinbox_contrast.value()
             rotation_value = self.spinbox_rotate.value()
             sharpness_value = self.spinbox_sharpness.value()
             brightness_value = self.spinbox_brightness.value()
 
+            pil_img = self.edit_images.convert_pixmap_to_pil()
+
             enhanced_pixmap = self.edit_images.calc_img_enhance(rotation_value, contrast_value,
-                                                                sharpness_value, brightness_value)
+                                                                sharpness_value, brightness_value, pil_img)
             self.edit_images.set_img_job_attr(rotation_value, contrast_value, sharpness_value, brightness_value)
             self.label_image_preview.setPixmap(enhanced_pixmap)
-
-    # def refresh_pixmap_img_contrast(self):
-    #     self.edit_images.calc_img_contrast(self.spinbox_contrast.value())
-    #     self.label_image_preview.setPixmap(self.edit_images.enhanced_pixmap)
 
     def toggle_image_preview(self):
         """
@@ -473,16 +490,60 @@ class GuiMain(QWidget):
         enhanced pixmap (if exists), ensuring that both adopt the proper rotation value.
         :return:
         """
-        rotation_value = self.spinbox_rotate.value()
-
         if self.label_image_preview is not None:
-            if self.edit_images.is_enhanced_pixmap:
-                scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, self.is_attr_modified)
-                self.label_image_preview.setPixmap(scaled_pixmap)
-                self.edit_images.is_enhanced_pixmap = False
-                self.label_displayed_image.setText("Displayed: Original")
-            else:
-                scaled_pixmap = self.edit_images.calc_img_rotation(rotation_value, self.is_attr_modified)
-                self.label_image_preview.setPixmap(scaled_pixmap)
-                self.edit_images.is_enhanced_pixmap = True
+            if self.is_previewing_default:
+                self.label_image_preview.setPixmap(self.img_job.img_enhanced_pixmap)
                 self.label_displayed_image.setText("Displayed: Edited")
+            else:
+                self.label_image_preview.setPixmap(self.img_job.img_pixmap)
+                self.label_displayed_image.setText("Displayed: Original")
+
+    def browse_to_export_directory(self):
+        """
+        Executed when user clicks on the button to browse to a specific export directory
+        :return:
+        """
+        selected_directory = self.export_images.open_browse_directory_window()
+        self.line_edit_export_dir.setText(selected_directory)
+
+    def toggle_user_filename(self):
+        """
+        Executed when the user checks or unchecks the checkbox on whether they wish to specify a unique file name or
+        use the image's original filename.  Will toggle ReadOnly state on the line_edit widget.
+        :return:
+        """
+        if self.line_edit_filename.isReadOnly():
+            self.line_edit_filename.setStyleSheet("background-color: white;")
+            self.line_edit_filename.setReadOnly(False)
+        else:
+            self.line_edit_filename.setStyleSheet("background-color: lightgray;")
+            self.line_edit_filename.setReadOnly(True)
+
+    def export_image_to_file(self):
+        """
+        Executed when the user clicks on the button to process export on the images.
+        :return:
+        """
+        self.export_error_checks()
+
+        if self.combobox_export_all_or_one.currentIndex() == 0:
+            print("exporting just the current active image")
+        else:
+            print("exporting all images")
+
+    def export_error_checks(self):
+        # Start by doing some error checks to make sure all the settings are set properly for export.
+        if len(self.load_images.all_image_jobs) == 0:
+            message_list = "No images found.  Return to the load tab and load in some images to edit."
+            message_dialog_box = ExportDialogBox(message_list)
+            message_dialog_box.exec_()
+        else:
+            message_list = ""
+            if self.line_edit_export_dir.text() == "":
+                message_list = f"No export directory chosen.  Please set one.\n"
+            if not self.checkbox_use_orig_filename.isChecked() and self.line_edit_filename == "":
+                message_list = (f"{message_list}You checked the box to use a new unique filename but "
+                                f"haven't entered one.\n")
+
+            message_dialog_box = ExportDialogBox(message_list)
+            message_dialog_box.exec_()
