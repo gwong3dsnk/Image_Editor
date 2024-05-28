@@ -107,13 +107,17 @@ class EditImages:
 
         return rotated_pixmap
 
-    def convert_pixmap_to_pil(self):
+    def convert_pixmap_to_pil(self, is_exporting_image):
         """
         Converts from a pixmap image to a Pillow Image
         :return image: (Image)
         """
-        pil_img = self.img_job.img_pixmap.toImage()
-        image = Image.fromqimage(pil_img)
+        if is_exporting_image:
+            pil_img = self.img_job.img_enhanced_pixmap.toImage()
+            image = Image.fromqimage(pil_img)
+        else:
+            pil_img = self.img_job.img_pixmap.toImage()
+            image = Image.fromqimage(pil_img)
         return image
 
     def convert_pil_to_pixmap(self, pil_img):

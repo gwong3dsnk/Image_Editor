@@ -1,4 +1,4 @@
-import sys
+import sys, os
 from PySide6.QtCore import Qt
 from PySide6 import QtGui
 from PySide6.QtWidgets import *
@@ -477,7 +477,8 @@ class GuiMain(QWidget):
             sharpness_value = self.spinbox_sharpness.value()
             brightness_value = self.spinbox_brightness.value()
 
-            pil_img = self.edit_images.convert_pixmap_to_pil()
+            is_exporting_image = False
+            pil_img = self.edit_images.convert_pixmap_to_pil(is_exporting_image)
 
             enhanced_pixmap = self.edit_images.calc_img_enhance(rotation_value, contrast_value,
                                                                 sharpness_value, brightness_value, pil_img)
@@ -524,19 +525,49 @@ class GuiMain(QWidget):
         Executed when the user clicks on the button to process export on the images.
         :return:
         """
-        self.export_error_checks()
+        # self.export_error_checks()
+
+        if self.combobox_active_image.currentIndex() == 0:
+            self.open_dialog_box("Please choose an edited image from the Edit tab dropdown menu to export")
 
         if self.combobox_export_all_or_one.currentIndex() == 0:
-            print("exporting just the current active image")
+            if self.img_job is not None:
+                if self.img_job.img_enhanced_pixmap is not None:
+                    is_exporting_image = True
+                    chosen_file_format = self.combobox_image_format.currentText().lower()
+
+                    if not self.checkbox_use_orig_filename.isChecked():
+                        base_filename = self.line_edit_filename.text()
+                    else:
+                        base_filename = self.img_job.img_name
+
+                    prefix = self.line_edit_prefix.text() if self.line_edit_prefix.text() != "" else ""
+                    suffix = self.line_edit_suffix.text() if self.line_edit_suffix.text() != "" else ""
+
+                    if prefix != "" and suffix == "":
+                        filename_with_inserts = f"{prefix}_{base_filename}.{chosen_file_format}"
+                    elif prefix != "" and suffix != "":
+                        filename_with_inserts = f"{prefix}_{base_filename}_{suffix}.{chosen_file_format}"
+                    elif prefix == "" and suffix != "":
+                        filename_with_inserts = f"{base_filename}_{suffix}.{chosen_file_format}"
+                    else:
+                        filename_with_inserts = f"{base_filename}.{chosen_file_format}"
+
+                    pil_img = self.edit_images.convert_pixmap_to_pil(is_exporting_image)
+                    export_path = os.path.join(self.line_edit_export_dir.text(), filename_with_inserts)
+                    pil_img.save(export_path)
+                else:
+                    self.open_dialog_box("The current image has no edits.  Please edit it first.")
+            else:
+                self.open_dialog_box("No images have been edited yet.")
         else:
-            print("exporting all images")
+            print("User has selected to export all images.")
 
     def export_error_checks(self):
         # Start by doing some error checks to make sure all the settings are set properly for export.
         if len(self.load_images.all_image_jobs) == 0:
-            message_list = "No images found.  Return to the load tab and load in some images to edit."
-            message_dialog_box = ExportDialogBox(message_list)
-            message_dialog_box.exec_()
+            self.open_dialog_box("No edited images found.  Return to the load tab and load in some images to edit.  "
+                                 "Make sure the images have been edited in the Edit tab.")
         else:
             message_list = ""
             if self.line_edit_export_dir.text() == "":
@@ -544,6 +575,8 @@ class GuiMain(QWidget):
             if not self.checkbox_use_orig_filename.isChecked() and self.line_edit_filename == "":
                 message_list = (f"{message_list}You checked the box to use a new unique filename but "
                                 f"haven't entered one.\n")
+            self.open_dialog_box(message_list)
 
-            message_dialog_box = ExportDialogBox(message_list)
-            message_dialog_box.exec_()
+    def open_dialog_box(self, message_list):
+        message_dialog_box = ExportDialogBox(message_list)
+        message_dialog_box.exec_()

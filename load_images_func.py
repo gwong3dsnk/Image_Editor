@@ -107,6 +107,6 @@ class LoadImages:
                 img_job_obj.img_aspect_ratio_inv = ip.width / ip.height
                 img_job_obj.img_format = ip.format
                 img_job_obj.img_path = file
-                img_job_obj.img_name = file.rpartition("/")[2]
+                img_job_obj.img_name = file.rpartition("/")[2].split(".")[0]
 
             self.all_image_jobs.append(img_job_obj)
