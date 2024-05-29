@@ -533,28 +533,32 @@ class GuiMain(QWidget):
         if self.combobox_export_all_or_one.currentIndex() == 0:
             if self.img_job is not None:
                 if self.img_job.img_enhanced_pixmap is not None:
+                    # Setup some initial variables
                     is_exporting_image = True
                     chosen_file_format = self.combobox_image_format.currentText().lower()
+                    export_dir = self.line_edit_export_dir.text()
+                    filename_with_format = ""
+                    prefix = self.line_edit_prefix.text() if self.line_edit_prefix.text() != "" else ""
+                    suffix = self.line_edit_suffix.text() if self.line_edit_suffix.text() != "" else ""
 
                     if not self.checkbox_use_orig_filename.isChecked():
                         base_filename = self.line_edit_filename.text()
                     else:
                         base_filename = self.img_job.img_name
 
-                    prefix = self.line_edit_prefix.text() if self.line_edit_prefix.text() != "" else ""
-                    suffix = self.line_edit_suffix.text() if self.line_edit_suffix.text() != "" else ""
+                    filename_with_inserts = self.export_images.get_filename_with_inserts(base_filename, prefix, suffix)
 
-                    if prefix != "" and suffix == "":
-                        filename_with_inserts = f"{prefix}_{base_filename}.{chosen_file_format}"
-                    elif prefix != "" and suffix != "":
-                        filename_with_inserts = f"{prefix}_{base_filename}_{suffix}.{chosen_file_format}"
-                    elif prefix == "" and suffix != "":
-                        filename_with_inserts = f"{base_filename}_{suffix}.{chosen_file_format}"
+                    if self.checkbox_append_number.isChecked():
+                        filename_with_format = self.export_images.get_filename_with_increm_num(export_dir,
+                                                                                               filename_with_inserts,
+                                                                                               chosen_file_format,
+                                                                                               filename_with_format)
                     else:
-                        filename_with_inserts = f"{base_filename}.{chosen_file_format}"
+                        filename_with_format = f"{filename_with_inserts}.{chosen_file_format}"
 
+                    # Convert to pillow image and save new file.
                     pil_img = self.edit_images.convert_pixmap_to_pil(is_exporting_image)
-                    export_path = os.path.join(self.line_edit_export_dir.text(), filename_with_inserts)
+                    export_path = os.path.join(self.line_edit_export_dir.text(), filename_with_format)
                     pil_img.save(export_path)
                 else:
                     self.open_dialog_box("The current image has no edits.  Please edit it first.")
@@ -564,7 +568,10 @@ class GuiMain(QWidget):
             print("User has selected to export all images.")
 
     def export_error_checks(self):
-        # Start by doing some error checks to make sure all the settings are set properly for export.
+        """
+        Initial set of error checks when attempting to export.
+        :return:
+        """
         if len(self.load_images.all_image_jobs) == 0:
             self.open_dialog_box("No edited images found.  Return to the load tab and load in some images to edit.  "
                                  "Make sure the images have been edited in the Edit tab.")
@@ -578,5 +585,10 @@ class GuiMain(QWidget):
             self.open_dialog_box(message_list)
 
     def open_dialog_box(self, message_list):
+        """
+        Opens a new popup window dialoq that shows the passed in message to the user.
+        :param message_list:
+        :return:
+        """
         message_dialog_box = ExportDialogBox(message_list)
         message_dialog_box.exec_()
