@@ -98,6 +98,11 @@ class LoadImages:
         self.refined_file_list = []
 
     def create_image_jobs(self, refined_file_list):
+        """
+        For each file selected to load in, create an img_job object and setup default attribute values.
+        :param refined_file_list:
+        :return:
+        """
         for file in refined_file_list:
             img_job_obj = image_job.ImageJob()
             with Image.open(file) as ip:

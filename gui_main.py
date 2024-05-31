@@ -288,6 +288,8 @@ class GuiMain(QWidget):
         which is stored in the selected_files_abs_paths attr.
         :return:
         """
+        # TODO: Issue.  Load images.  Edit.  Load more images.  Note duplicate is created.  Remove duplicate.
+        # TODO: Go to edit table.  Check dropdown.  Note duplicate still remains.
         self.load_images.browse_for_files()
         selected_files = self.load_images.selected_files_abs_paths
         self.load_images.check_list_for_duplicates(self.image_url_list, selected_files)
@@ -525,47 +527,37 @@ class GuiMain(QWidget):
         Executed when the user clicks on the button to process export on the images.
         :return:
         """
-        # self.export_error_checks()
+        self.export_error_checks()
 
-        if self.combobox_active_image.currentIndex() == 0:
-            self.open_dialog_box("Please choose an edited image from the Edit tab dropdown menu to export")
+        is_exporting_image = True
+        chosen_file_format = self.combobox_image_format.currentText().lower()
+        export_dir = self.line_edit_export_dir.text()
+        prefix = self.line_edit_prefix.text() if self.line_edit_prefix.text() != "" else ""
+        suffix = self.line_edit_suffix.text() if self.line_edit_suffix.text() != "" else ""
 
         if self.combobox_export_all_or_one.currentIndex() == 0:
+            if self.combobox_active_image.currentIndex() == 0:
+                self.open_dialog_box("Please choose an edited image from the Edit tab dropdown menu to export")
             if self.img_job is not None:
                 if self.img_job.img_enhanced_pixmap is not None:
-                    # Setup some initial variables
-                    is_exporting_image = True
-                    chosen_file_format = self.combobox_image_format.currentText().lower()
-                    export_dir = self.line_edit_export_dir.text()
-                    filename_with_format = ""
-                    prefix = self.line_edit_prefix.text() if self.line_edit_prefix.text() != "" else ""
-                    suffix = self.line_edit_suffix.text() if self.line_edit_suffix.text() != "" else ""
-
-                    if not self.checkbox_use_orig_filename.isChecked():
-                        base_filename = self.line_edit_filename.text()
-                    else:
-                        base_filename = self.img_job.img_name
-
-                    filename_with_inserts = self.export_images.get_filename_with_inserts(base_filename, prefix, suffix)
-
-                    if self.checkbox_append_number.isChecked():
-                        filename_with_format = self.export_images.get_filename_with_increm_num(export_dir,
-                                                                                               filename_with_inserts,
-                                                                                               chosen_file_format,
-                                                                                               filename_with_format)
-                    else:
-                        filename_with_format = f"{filename_with_inserts}.{chosen_file_format}"
-
-                    # Convert to pillow image and save new file.
-                    pil_img = self.edit_images.convert_pixmap_to_pil(is_exporting_image)
-                    export_path = os.path.join(self.line_edit_export_dir.text(), filename_with_format)
-                    pil_img.save(export_path)
+                    self.establish_filename_and_save(is_exporting_image,
+                                                     chosen_file_format, export_dir, prefix, suffix)
                 else:
                     self.open_dialog_box("The current image has no edits.  Please edit it first.")
             else:
                 self.open_dialog_box("No images have been edited yet.")
         else:
-            print("User has selected to export all images.")
+            all_image_jobs = self.load_images.all_image_jobs
+            if not all_image_jobs:
+                self.open_dialog_box(f"No images found.  Please load and edit some images.")
+            else:
+                for job in all_image_jobs:
+                    if job.img_enhanced_pixmap is None:
+                        self.open_dialog_box(f"This image [{job.img_name}] has no edits.  "
+                                             f"Please edit it first.  Skipping.")
+                    else:
+                        self.establish_filename_and_save(is_exporting_image, chosen_file_format, export_dir,
+                                                         prefix, suffix, job)
 
     def export_error_checks(self):
         """
@@ -592,3 +584,29 @@ class GuiMain(QWidget):
         """
         message_dialog_box = ExportDialogBox(message_list)
         message_dialog_box.exec_()
+
+    def establish_filename_and_save(self, *args):
+        """
+        Configure the filename and call func to begin save image process.
+        :param args: (is_exporting_image, chosen_file_format, export_dir, prefix, suffix, job)
+        :return:
+        """
+        if not self.checkbox_use_orig_filename.isChecked():
+            base_filename = self.line_edit_filename.text()
+        else:
+            base_filename = self.img_job.img_name if self.combobox_export_all_or_one.currentIndex() == 0 else (
+                args[5].img_name)
+
+        filename_with_inserts = self.export_images.get_filename_with_inserts(base_filename, args[3], args[4])
+
+        if self.checkbox_append_number.isChecked():
+            filename_with_format = self.export_images.get_filename_with_increm_num(args[2],
+                                                                                   filename_with_inserts,
+                                                                                   args[1],
+                                                                                   "")
+        else:
+            filename_with_format = f"{filename_with_inserts}.{args[1]}"
+
+        # Convert enhanced_pixmap from img_job to pillow image and save new file.
+        pil_img = self.edit_images.convert_pixmap_to_pil(args[0])
+        self.export_images.save_image_out(pil_img, args[2], filename_with_format)

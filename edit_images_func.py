@@ -130,6 +130,11 @@ class EditImages:
         self.img_job.img_enhanced_pixmap = QPixmap.fromImage(image_qt)
 
     def scale_pixmap(self, pixmap):
+        """
+        Take in a pixmap and scale it to fit properly into the QLabel for visual display to the user.
+        :param pixmap:
+        :return:
+        """
         scaled_pixmap = pixmap.scaled(
             self.label_preview_widget.size(),
             Qt.KeepAspectRatio,
@@ -143,6 +148,11 @@ class EditImages:
         self.img_job = None
 
     def set_img_job_attr(self, *args):
+        """
+        Save user entered values for image properties to the img_job attributes.
+        :param args:
+        :return:
+        """
         self.img_job.img_rotation = args[0]
         self.img_job.img_contrast = args[1]
         self.img_job.img_sharpness = args[2]
