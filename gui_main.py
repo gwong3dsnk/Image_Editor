@@ -97,6 +97,7 @@ class GuiMain(QWidget):
         self.button_toggle_preview.clicked.connect(self.toggle_image_preview)
         self.checkbox_apply_all_images = QCheckBox()
         self.checkbox_apply_all_images.setChecked(False)
+        self.checkbox_apply_all_images.setEnabled(False)
         self.checkbox_keep_aspect_ratio = QCheckBox()
         self.checkbox_keep_aspect_ratio.setChecked(True)
 
@@ -288,8 +289,6 @@ class GuiMain(QWidget):
         which is stored in the selected_files_abs_paths attr.
         :return:
         """
-        # TODO: Issue.  Load images.  Edit.  Load more images.  Note duplicate is created.  Remove duplicate.
-        # TODO: Go to edit table.  Check dropdown.  Note duplicate still remains.
         self.load_images.browse_for_files()
         selected_files = self.load_images.selected_files_abs_paths
         self.load_images.check_list_for_duplicates(self.image_url_list, selected_files)
@@ -339,9 +338,10 @@ class GuiMain(QWidget):
         :return:
         """
         self.load_images.create_image_jobs(refined_file_list)
-        for job in self.load_images.all_image_jobs:
-            self.image_url_list.addItem(job.img_path)
-            self.populate_active_image_combobox(job.img_path)
+
+        for path in refined_file_list:
+            self.image_url_list.addItem(path)
+            self.populate_active_image_combobox(path)
 
     def clean_url_list(self):
         """
@@ -493,6 +493,7 @@ class GuiMain(QWidget):
         enhanced pixmap (if exists), ensuring that both adopt the proper rotation value.
         :return:
         """
+        # TODO: Not working
         if self.label_image_preview is not None:
             if self.is_previewing_default:
                 self.label_image_preview.setPixmap(self.img_job.img_enhanced_pixmap)
@@ -577,6 +578,7 @@ class GuiMain(QWidget):
             self.open_dialog_box(message_list)
 
     def open_dialog_box(self, message_list):
+        # TODO: Move to util_func.py
         """
         Opens a new popup window dialoq that shows the passed in message to the user.
         :param message_list:

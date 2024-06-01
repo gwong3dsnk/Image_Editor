@@ -79,14 +79,14 @@ class LoadImages:
         list_widget_item_num = list_widget.count()
         list_item_text = []
 
-        if list_widget_item_num:
+        if list_widget_item_num > 0:
             for n in range(list_widget_item_num):
                 item = list_widget.item(n)
                 list_item_text.append(item.text())
 
             for path in file_list:
                 if path in list_item_text:
-                    break
+                    continue
                 else:
                     self.refined_file_list.append(path)
         else:
