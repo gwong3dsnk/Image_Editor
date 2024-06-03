@@ -528,37 +528,39 @@ class GuiMain(QWidget):
         Executed when the user clicks on the button to process export on the images.
         :return:
         """
-        self.export_error_checks()
+        is_safe_to_save = self.export_error_checks()
 
-        is_exporting_image = True
-        chosen_file_format = self.combobox_image_format.currentText().lower()
-        export_dir = self.line_edit_export_dir.text()
-        prefix = self.line_edit_prefix.text() if self.line_edit_prefix.text() != "" else ""
-        suffix = self.line_edit_suffix.text() if self.line_edit_suffix.text() != "" else ""
+        if is_safe_to_save:
+            chosen_file_format = self.combobox_image_format.currentText().lower()
+            export_dir = self.line_edit_export_dir.text()
+            prefix = self.line_edit_prefix.text() if self.line_edit_prefix.text() != "" else ""
+            suffix = self.line_edit_suffix.text() if self.line_edit_suffix.text() != "" else ""
 
-        if self.combobox_export_all_or_one.currentIndex() == 0:
-            if self.combobox_active_image.currentIndex() == 0:
-                self.open_dialog_box("Please choose an edited image from the Edit tab dropdown menu to export")
-            if self.img_job is not None:
-                if self.img_job.img_enhanced_pixmap is not None:
-                    self.establish_filename_and_save(is_exporting_image,
-                                                     chosen_file_format, export_dir, prefix, suffix)
-                else:
-                    self.open_dialog_box("The current image has no edits.  Please edit it first.")
-            else:
-                self.open_dialog_box("No images have been edited yet.")
-        else:
-            all_image_jobs = self.load_images.all_image_jobs
-            if not all_image_jobs:
-                self.open_dialog_box(f"No images found.  Please load and edit some images.")
-            else:
-                for job in all_image_jobs:
-                    if job.img_enhanced_pixmap is None:
-                        self.open_dialog_box(f"This image [{job.img_name}] has no edits.  "
-                                             f"Please edit it first.  Skipping.")
+            if self.combobox_export_all_or_one.currentIndex() == 0:
+                if self.combobox_active_image.currentIndex() == 0:
+                    self.open_dialog_box("Please choose an edited image from the Edit tab dropdown menu to export")
+                if self.img_job is not None:
+                    if self.img_job.img_enhanced_pixmap is not None:
+                        filename_with_format = self.establish_filename(chosen_file_format, export_dir,
+                                                                       prefix, suffix)
+                        self.resize_and_save(True, export_dir, filename_with_format)
                     else:
-                        self.establish_filename_and_save(is_exporting_image, chosen_file_format, export_dir,
-                                                         prefix, suffix, job)
+                        self.open_dialog_box("The current image has no edits.  Please edit it first.")
+                else:
+                    self.open_dialog_box("No images have been edited yet.")
+            else:
+                all_image_jobs = self.load_images.all_image_jobs
+                if not all_image_jobs:
+                    self.open_dialog_box(f"No images found.  Please load and edit some images.")
+                else:
+                    for job in all_image_jobs:
+                        if job.img_enhanced_pixmap is None:
+                            self.open_dialog_box(f"This image [{job.img_name}] has no edits.  "
+                                                 f"Please edit it first.  Skipping.")
+                        else:
+                            filename_with_format = self.establish_filename(chosen_file_format, export_dir,
+                                                                           prefix, suffix, job)
+                            self.resize_and_save(True, export_dir, filename_with_format)
 
     def export_error_checks(self):
         """
@@ -568,17 +570,25 @@ class GuiMain(QWidget):
         if len(self.load_images.all_image_jobs) == 0:
             self.open_dialog_box("No edited images found.  Return to the load tab and load in some images to edit.  "
                                  "Make sure the images have been edited in the Edit tab.")
+            return False
         else:
-            message_list = ""
             if self.line_edit_export_dir.text() == "":
                 message_list = f"No export directory chosen.  Please set one.\n"
+            else:
+                message_list = ""
             if not self.checkbox_use_orig_filename.isChecked() and self.line_edit_filename == "":
                 message_list = (f"{message_list}You checked the box to use a new unique filename but "
                                 f"haven't entered one.\n")
-            self.open_dialog_box(message_list)
+            else:
+                message_list = ""
+
+            if message_list != "":
+                self.open_dialog_box(message_list)
+                return False
+            else:
+                return True
 
     def open_dialog_box(self, message_list):
-        # TODO: Move to util_func.py
         """
         Opens a new popup window dialoq that shows the passed in message to the user.
         :param message_list:
@@ -587,28 +597,32 @@ class GuiMain(QWidget):
         message_dialog_box = ExportDialogBox(message_list)
         message_dialog_box.exec_()
 
-    def establish_filename_and_save(self, *args):
+    def establish_filename(self, *args):
         """
         Configure the filename and call func to begin save image process.
-        :param args: (is_exporting_image, chosen_file_format, export_dir, prefix, suffix, job)
+        :param args: (chosen_file_format, export_dir, prefix, suffix, job)
         :return:
         """
         if not self.checkbox_use_orig_filename.isChecked():
             base_filename = self.line_edit_filename.text()
         else:
             base_filename = self.img_job.img_name if self.combobox_export_all_or_one.currentIndex() == 0 else (
-                args[5].img_name)
+                args[4].img_name)
 
-        filename_with_inserts = self.export_images.get_filename_with_inserts(base_filename, args[3], args[4])
+        filename_with_inserts = self.export_images.get_filename_with_inserts(base_filename, args[2], args[3])
 
         if self.checkbox_append_number.isChecked():
-            filename_with_format = self.export_images.get_filename_with_increm_num(args[2],
+            filename_with_format = self.export_images.get_filename_with_increm_num(args[1],
                                                                                    filename_with_inserts,
-                                                                                   args[1],
+                                                                                   args[0],
                                                                                    "")
+            return filename_with_format
         else:
-            filename_with_format = f"{filename_with_inserts}.{args[1]}"
+            filename_with_format = f"{filename_with_inserts}.{args[0]}"
+            return filename_with_format
 
+    def resize_and_save(self, is_exporting_image, export_dir, filename_with_format):
         # Convert enhanced_pixmap from img_job to pillow image and save new file.
-        pil_img = self.edit_images.convert_pixmap_to_pil(args[0])
-        self.export_images.save_image_out(pil_img, args[2], filename_with_format)
+        pil_img = self.edit_images.convert_pixmap_to_pil(is_exporting_image)
+        resized_pil_img = pil_img.resize((int(self.line_edit_x_res.text()), int(self.line_edit_y_res.text())))
+        self.export_images.save_image_out(resized_pil_img, export_dir, filename_with_format)

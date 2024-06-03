@@ -47,6 +47,7 @@ class EditImages:
         """
         item = image_url_list.item(self.active_job_index)
         self.img_job.img_pixmap = QPixmap(item.text())
+        self.img_job.img_enhanced_pixmap = self.img_job.img_pixmap
 
         scaled_default_pixmap = self.scale_pixmap(self.img_job.img_pixmap)
 
