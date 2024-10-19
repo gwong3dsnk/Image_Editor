@@ -24,7 +24,7 @@ class LoadImages:
         self.setup_logger()
 
         self.file_dialog = QFileDialog()
-        self.file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)
+        self.file_dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
 
     def setup_logger(self):
         log_format = logging.Formatter("%(asctime)s: %(module)s: %(levelname)s: %(message)s",
@@ -40,7 +40,7 @@ class LoadImages:
         format.
         :return:
         """
-        self.file_dialog.setFileMode(QFileDialog.ExistingFiles)
+        self.file_dialog.setFileMode(QFileDialog.Option.ExistingFiles)
 
         # Returns the absolute file path with a filter for image file types only
         files_paths, _ = self.file_dialog.getOpenFileNames(filter=NAME_FILTERS)
@@ -53,7 +53,7 @@ class LoadImages:
         Ensure the files are of image format.
         :return:
         """
-        self.file_dialog.setFileMode(QFileDialog.Directory)
+        self.file_dialog.setFileMode(QFileDialog.Option.Directory)
 
         # Returns the absolute file path with a filter for image file types only
         selected_dir = self.file_dialog.getExistingDirectory()
@@ -71,8 +71,8 @@ class LoadImages:
 
     def check_list_for_duplicates(self, list_widget, file_list):
         """
-        Checks for duplicates that already exist in the list widget.  If no dups exist, add to the refined list and
-        return it.
+        Checks for duplicates that already exist in the list widget.  If no duplicates exist,
+        add to the refined list and return it.
         :param list_widget: image_url_list in GuiMain()
         :param file_list: list of absolute path of file images
         """

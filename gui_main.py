@@ -1,7 +1,9 @@
-import sys, os
+import sys
 from PySide6.QtCore import Qt
 from PySide6 import QtGui
-from PySide6.QtWidgets import *
+from PySide6.QtWidgets import (QGridLayout, QLayout, QPushButton, QLabel, QListWidget, QLineEdit,
+                               QWidget, QTabWidget, QMenuBar, QDoubleSpinBox, QComboBox,
+                               QSpinBox, QMenu, QCheckBox)
 from load_images_func import LoadImages
 from edit_images_func import EditImages
 from export_images_func import ExportImages
@@ -43,7 +45,7 @@ class GuiMain(QWidget):
         self.button_browse_image_folder.clicked.connect(self.populate_list_with_dir_files)
         self.image_url_list = QListWidget()
         self.image_url_list.setFixedSize(500, 250)
-        self.image_url_list.setSelectionMode(QListWidget.MultiSelection)
+        self.image_url_list.setSelectionMode(QListWidget.SelectionMode.MultiSelection)
         self.button_clear_url_list = QPushButton(text="Clear File(s)")
         self.button_clear_url_list.clicked.connect(self.clean_url_list)
         self.button_remove_selected_url = QPushButton(text="Remove Selected File(s)")
@@ -174,7 +176,8 @@ class GuiMain(QWidget):
         self.menu_bar.addMenu(file_menu)
         self.menu_bar.addMenu(edit_menu)
 
-    def exit_action_triggered(self):
+    @staticmethod
+    def exit_action_triggered():
         """
         Exit the application
         :return:
@@ -307,7 +310,7 @@ class GuiMain(QWidget):
         are parsed then stored in the dir_selected_files_abs_paths attr.
         :return:
         """
-        # User selects folder and we process files to check for duplicates.  Refined_File_List contains the new unique
+        # User selects folder, then we process files to check for duplicates.  Refined_File_List contains the new unique
         # items to be added.
         self.load_images.browse_for_folder()
         dir_selected_files = self.load_images.dir_selected_files_abs_paths
@@ -368,7 +371,7 @@ class GuiMain(QWidget):
     def display_selected_image(self):
         """
         Triggers when the active image combobox detects a change.  Get the index-1 (to ignore the default combobox
-        item), use that index to get the full untruncated absolute path from the list widget and load that image
+        item), use that index to get the full absolute path from the list widget and load that image
         into the label.
         :return:
         """
@@ -588,9 +591,10 @@ class GuiMain(QWidget):
             else:
                 return True
 
-    def open_dialog_box(self, message_list):
+    @staticmethod
+    def open_dialog_box(message_list):
         """
-        Opens a new popup window dialoq that shows the passed in message to the user.
+        Opens a new popup window dialog that shows the passed in message to the user.
         :param message_list:
         :return:
         """

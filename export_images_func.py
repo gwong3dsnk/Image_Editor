@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QFileDialog
 class ExportImages:
     def __init__(self):
         self.file_dialog = QFileDialog()
-        self.file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)
+        self.file_dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
 
     def open_browse_directory_window(self):
         """
@@ -13,12 +13,13 @@ class ExportImages:
         format.
         :return:
         """
-        self.file_dialog.setFileMode(QFileDialog.Directory)
+        self.file_dialog.setFileMode(QFileDialog.Option.Directory)
         selected_directory = self.file_dialog.getExistingDirectory()
 
         return selected_directory
 
-    def get_filename_with_inserts(self, base_filename, prefix, suffix):
+    @staticmethod
+    def get_filename_with_inserts(base_filename, prefix, suffix):
         """
         If user has declared to use a prefix and/or suffix, detect the entered values and create the new name string
         :param base_filename:
@@ -37,7 +38,8 @@ class ExportImages:
 
         return filename_with_inserts
 
-    def get_filename_with_increm_num(self, export_dir, filename_with_inserts, chosen_file_format, filename_with_format):
+    @staticmethod
+    def get_filename_with_increm_num(export_dir, filename_with_inserts, chosen_file_format, filename_with_format):
         """
         Adds incremental number to end of filename.
         :param export_dir:
@@ -72,6 +74,7 @@ class ExportImages:
 
         return filename_with_format
 
-    def save_image_out(self, pil_img, export_dir, filename_with_format):
+    @staticmethod
+    def save_image_out(pil_img, export_dir, filename_with_format):
         export_path = os.path.join(export_dir, filename_with_format)
         pil_img.save(export_path)
